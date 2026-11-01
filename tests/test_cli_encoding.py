@@ -8,6 +8,7 @@ TextIOWrapper also exercise the transport contract on UTF-8-default platforms.
 from __future__ import annotations
 
 from hashlib import sha256
+from html.parser import HTMLParser
 import io
 import json
 import os
@@ -114,6 +115,34 @@ class CliEncoding(unittest.TestCase):
             cli._emit(payload, stream)
             encoded = raw.getvalue()
         self.assertEqual(json.loads(encoded.decode("ascii")), payload)
+
+    def test_html_keeps_unicode_metadata_through_legacy_shell_decoding(self):
+        self.create()
+        result = self.run_cli("history", "--format", "html", pipe_encoding="ascii")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, b"")
+        self.assertTrue(result.stdout.isascii())
+
+        class Text(HTMLParser):
+            def __init__(self):
+                super().__init__(convert_charrefs=True)
+                self.parts = []
+
+            def handle_data(self, value):
+                self.parts.append(value)
+
+        for encoding in ("utf-8", "cp437", "cp1252", "ascii"):
+            with self.subTest(receiving_shell_encoding=encoding):
+                # PowerShell 5.1 may decode an external process through this
+                # code page and save its redirect as UTF-16 with a BOM.
+                redirected = result.stdout.decode(encoding).encode("utf-16")
+                parsed = Text()
+                parsed.feed(redirected.decode("utf-16"))
+                visible = "".join(parsed.parts)
+                self.assertIn(UNICODE_PATH, visible)
+                self.assertIn(UNICODE_LABEL, visible)
+                self.assertNotIn(UNICODE_CONTENT, visible)
+        self.assertEqual((self.root / UNICODE_PATH).read_bytes(), self.content_bytes)
 
 
 if __name__ == "__main__":

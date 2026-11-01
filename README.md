@@ -19,7 +19,7 @@ First initialization creates a small, source-free `.undoweave-id` marker in the 
 Python 3.11+ and Git are required for this install command. No AI subscription, API key, or paid service is needed for the demo.
 
 ```sh
-python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.2.0"
+python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.2.1"
 undoweave demo
 ```
 
@@ -78,6 +78,12 @@ Each successful undo is recorded as another edit. Previewing and undoing that in
 It tracks text content, not complete filesystem metadata. Recreated files need their permissions reviewed; custom ACLs and extended attributes are not restored.
 
 ## See your change timeline
+
+![Synthetic recorded edits and their linked undo on the change timeline](docs/assets/timeline.png)
+
+Times follow the continuous line, grouped by UTC day. An undo links to the
+edit it reverses; pending and unapplied operations have distinct markers and
+labels. The image uses synthetic data from the actual renderer.
 
 ```sh
 python -I -m undoweave --root /absolute/project history --format html > timeline.html
