@@ -229,6 +229,8 @@ class McpIntegrationTests(unittest.TestCase):
                 if "id" in message:
                     lines.append(proc.stdout.readline())
             proc.stdin.close()
+            # Python 3.11 communicate() otherwise tries to flush closed stdin.
+            proc.stdin = None
             rest, _err = proc.communicate(timeout=60)
         finally:
             if proc.poll() is None:
