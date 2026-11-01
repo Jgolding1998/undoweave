@@ -476,11 +476,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 changes = engine.history(args.limit)
                 if args.format == "html":
                     from .presentation import render_timeline
-                    # HTML declares UTF-8, including when redirected on Windows
-                    # whose default pipe encoding can otherwise be cp1252.
+                    # Numeric references preserve rendered Unicode even when
+                    # Windows PowerShell 5.1 decodes native stdout through a
+                    # legacy code page before rewriting the redirected file.
+                    # UTF-8 alone cannot control that receiving-shell decoder.
+                    document = render_timeline(changes, engine.status())
+                    document = document.encode("ascii", "xmlcharrefreplace").decode("ascii")
                     if hasattr(sys.stdout, "reconfigure"):
                         sys.stdout.reconfigure(encoding="utf-8")
-                    sys.stdout.write(render_timeline(changes, engine.status()) + "\n")
+                    sys.stdout.write(document + "\n")
                     sys.stdout.flush()
                     return 0
                 result = {"changes": changes}

@@ -115,7 +115,11 @@ class PresentationTests(unittest.TestCase):
                                 row(label="Earlier change", created=1700000000)])
         self.assertLess(html.index("Newest change"), html.index("Earlier change"))
         self.assertIn('datetime="2023-11-14T22:13:21Z"', html)
-        self.assertIn("UTC</time>", html)
+        # Exact seconds and zone remain in the tooltip and screen-reader text.
+        self.assertIn('title="14 Nov 2023 22:13:21 UTC">22:13<span class="sec">:21</span><span class="vh"> UTC</span></time>', html)
+        self.assertIn("all times UTC", html)
+        self.assertIn("Recorded changes in this snapshot", html)
+        self.assertNotIn("Every change recorded", html)
         self.assertIn("Journal totals unavailable", html)
 
     def test_empty_partial_and_invalid_optional_metadata_have_explicit_placeholders(self):
@@ -138,6 +142,62 @@ class PresentationTests(unittest.TestCase):
                 render_timeline(history)
         with self.assertRaises(ValueError):
             render_timeline([], status="private source")
+
+    def test_rows_are_grouped_by_utc_day_on_one_spine_without_resorting(self):
+        day = 86400
+        html = render_timeline([row(label="Today late", created=1700000000 + day),
+                                row(label="Yesterday", created=1700000000),
+                                row(label="Today again", created=1700000000 + day + 5)])
+        doc = Document(html)
+        heads = [attrs for tag, attrs in doc.elements if tag == "h3" and attrs.get("class") == "day-head"]
+        self.assertEqual(len(heads), 3)  # a day header repeats rather than reordering rows
+        self.assertEqual(sum(1 for tag, attrs in doc.elements if attrs.get("class") == "timeline"), 1)
+        self.assertLess(html.index("Today late"), html.index("Yesterday"))
+        self.assertLess(html.index("Yesterday"), html.index("Today again"))
+        self.assertIn('<time datetime="2023-11-15">Wednesday 15 November 2023</time>', html)
+
+    def test_clock_disagreement_with_journal_order_is_flagged_not_hidden(self):
+        html = render_timeline([row(label="Newer entry", created=1700000000),
+                                row(id="b" * 32, label="Older entry", created=1700000100)])
+        self.assertIn("1 timestamp disagrees with journal order", html)
+        self.assertEqual(html.count("Clock earlier than the entry recorded before it"), 1)
+        self.assertLess(html.index("Newer entry"), html.index("Older entry"))
+        self.assertNotIn("disagree", render_timeline([row(created=2), row(id="b" * 32, created=1)]))
+
+    def test_invalid_times_form_an_undated_group_and_never_count_as_disagreement(self):
+        html = render_timeline([row(created=float("nan")), row(id="b" * 32, created=1700000000), row(id="c" * 32, created=None)])
+        self.assertEqual(html.count("no valid timestamp"), 2)
+        self.assertNotIn("disagree", html)
+
+    def test_undo_relationships_link_both_directions_inside_the_snapshot(self):
+        html = render_timeline([row(id="b" * 32, label="Revert copy", undoes="a" * 32, created=1700000060),
+                                row(label="Change copy", undone_by="b" * 32)])
+        self.assertIn('id="change-' + "a" * 32 + '"', html)
+        self.assertIn('href="#change-' + "a" * 32 + '"', html)
+        self.assertIn('href="#change-' + "b" * 32 + '"', html)
+        self.assertIn("Reverses", html)
+        self.assertIn("Reversed by", html)
+        self.assertIn("is-reversed", html)
+        self.assertIn('class="node undo"', html)
+
+    def test_relations_outside_snapshot_or_noncanonical_ids_are_not_links(self):
+        html = render_timeline([row(id='x" onclick="y', undoes="c" * 32, undone_by="javascript:alert(1)")])
+        doc = Document(html)
+        hrefs = [attrs["href"] for _, attrs in doc.elements if "href" in attrs]
+        self.assertEqual(hrefs, ["#timeline"])
+        self.assertIn("outside this snapshot", html)
+        self.assertFalse(any(attrs.get("id", "").startswith("change-") for _, attrs in doc.elements))
+
+    def test_element_ids_stay_unique_when_input_repeats_a_change_id(self):
+        doc = Document(render_timeline([row(), row()]))
+        ids = [attrs["id"] for _, attrs in doc.elements if "id" in attrs]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_status_kinds_are_distinguished_in_text_not_only_colour(self):
+        html = render_timeline([row(status="pending"), row(id="b" * 32, status="aborted"), row(id="c" * 32, status="weird")])
+        for text in ("Pending", "Not applied", "Status unknown", "self-reported"):
+            self.assertIn(text, html)
+        self.assertNotIn("can be undone", html)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,17 @@
 # Release notes
 
+## 0.2.1
+
+- Show recorded changes on a continuous timeline with UTC day groups, a separate
+  time column and links between an undo and the edit it reverses.
+- Keep journal order visible when timestamps disagree; show unknown times and
+  out-of-snapshot relationships without inventing details.
+- Preserve Unicode labels in HTML exports passed through legacy PowerShell
+  decoding, using equivalent numeric HTML references. The MCP resource retains
+  its normal HTML output, and no new file-writing command is added.
+- Add presentation and browser regressions while preserving metadata-only output,
+  the no-script content policy and the existing undo preview requirements.
+
 ## 0.2.0
 
 Upgrade from 0.1.0 before using undo on important work. That release could accept

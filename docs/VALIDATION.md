@@ -2,6 +2,31 @@
 
 This is an early implementation, not a formal verification or a claim that no data loss is possible. All test edits and external comparisons used disposable projects. No paid model or API was used by the tests or benchmarks.
 
+## Final 0.2.0 release checks on 2026-11-01 UTC
+
+The published `v0.2.0` commit is
+[`368b8b230c2bc1262175b438cda2478d7fc79831`](https://github.com/Jgolding1998/undoweave/commit/368b8b230c2bc1262175b438cda2478d7fc79831).
+Its [main workflow run](https://github.com/Jgolding1998/undoweave/actions/runs/41262585865)
+completed all five jobs successfully. The recorded unit-test results were:
+
+| Hosted runner | Python | Tests run | Expected skips |
+| --- | --- | ---: | ---: |
+| Ubuntu | 3.11 | 197 | 11 |
+| Ubuntu | 3.13 | 197 | 11 |
+| Windows | 3.11 | 197 | 2 |
+| Windows | 3.13 | 197 | 2 |
+
+The skips are platform-specific checks: Windows behavior is exercised on
+Windows, and POSIX permission/FIFO behavior on Linux. Each test job also passed
+the disposable CLI demo, package build, and fresh-wheel CLI/MCP verification.
+The separate dependency-audit job passed. The preceding
+[pull-request workflow](https://github.com/Jgolding1998/undoweave/actions/runs/41262208087)
+also passed.
+
+This release receipt is separate from the earlier 192-test local snapshot
+below. It does not establish that every future branch or platform will pass;
+use the current Actions results when reviewing a later change.
+
 ## Version 0.2 local checks on 2026-10-31
 
 The frozen upgrade suite ran **192 tests**, passing with seven expected local

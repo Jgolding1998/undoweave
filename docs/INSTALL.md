@@ -13,17 +13,17 @@ macOS / Linux:
 
 ```sh
 python3 -m venv ~/.undoweave-venv
-~/.undoweave-venv/bin/python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.2.0"
+~/.undoweave-venv/bin/python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.2.1"
 ```
 
 Windows (PowerShell):
 
 ```powershell
 py -3 -m venv $HOME\.undoweave-venv
-& $HOME\.undoweave-venv\Scripts\python.exe -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.2.0"
+& $HOME\.undoweave-venv\Scripts\python.exe -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.2.1"
 ```
 
-This installs the `v0.2.0` release tag. Pin a release tag or a full commit
+This installs the `v0.2.1` release tag. Pin a release tag or a full commit
 SHA (`...undoweave@<40-character-sha>`), never a branch. A SHA is the strictest
 pin because a tag can in principle be moved. Leave out `[mcp]` if you only
 want the CLI.
