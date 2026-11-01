@@ -36,7 +36,7 @@ try:
 except ImportError:
     CORE_AVAILABLE = False
 
-EXPECTED_TOOLS = {"read_file", "write_file", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
+EXPECTED_TOOLS = {"read_file", "write_file", "replace_text", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
 
 
 def server_env() -> dict:
@@ -96,14 +96,19 @@ class McpIntegrationTests(unittest.TestCase):
             prompts = {p.name for p in (await client.list_prompts()).prompts}
             prompt = await client.get_prompt("safe_editing")
             resource = await client.read_resource("undoweave://instructions")
-            return tools, prompts, prompt, resource
+            timeline = await client.read_resource("undoweave://timeline")
+            return tools, prompts, prompt, resource, timeline
 
-        tools, prompts, prompt, resource = self.run_session(body)
+        tools, prompts, prompt, resource, timeline = self.run_session(body)
+        self.assertEqual(timeline.contents[0].mime_type, "text/html")
+        self.assertIn("No changes in this snapshot", timeline.contents[0].text)
+        self.assertNotIn(str(self.root), timeline.contents[0].text)
+        self.assertNotIn(str(self.state), timeline.contents[0].text)
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         for name in ("read_file", "list_changes", "workspace_status"):
             self.assertTrue(tools[name].annotations.read_only_hint, name)
             self.assertFalse(tools[name].annotations.destructive_hint, name)
-        for name in ("write_file", "apply_undo"):
+        for name in ("write_file", "replace_text", "apply_undo"):
             self.assertFalse(tools[name].annotations.read_only_hint, name)
             self.assertTrue(tools[name].annotations.destructive_hint, name)
         for tool in tools.values():
@@ -162,6 +167,33 @@ class McpIntegrationTests(unittest.TestCase):
         expected = original.replace(b"delta = 4", b"delta = human").replace(b"eta = 7", b"eta = B")
         self.assertEqual(target.read_bytes(), expected)
         self.assertNotIn("Traceback", self.errlog_path.read_text(encoding="utf-8"))
+
+    def test_partial_read_exact_replace_and_undo_acknowledgement(self):
+        async def body(client):
+            metadata = payload(await client.call_tool("read_file", {"path": "app.cfg", "metadata_only": True}))
+            selected = payload(await client.call_tool("read_file", {"path": "app.cfg", "start_line": 2, "end_line": 2}))
+            self.assertIsNone(metadata["content"])
+            self.assertEqual(selected["content"], "beta = 2\n")
+            self.assertEqual(selected["sha256"], metadata["sha256"])
+            edited = await client.call_tool("replace_text", {"path": "app.cfg", "old_text": "beta = 2", "new_text": "beta = PATCH", "actor": "agent", "expected_hash": selected["sha256"]})
+            self.assertFalse(edited.is_error, edited.content)
+            operation = payload(edited)
+            timeline = await client.read_resource("undoweave://timeline")
+            timeline_html = timeline.contents[0].text
+            self.assertIn("app.cfg", timeline_html)
+            self.assertIn(operation["id"], timeline_html)
+            self.assertNotIn("beta = PATCH", timeline_html)
+            self.assertNotIn(str(self.root), timeline_html)
+            self.assertNotIn(str(self.state), timeline_html)
+            latest = payload(await client.call_tool("read_file", {"path": "app.cfg", "metadata_only": True}))
+            self.assertEqual(latest["sha256"], operation["after_hash"])
+            preview = payload(await client.call_tool("preview_undo", {"edit_id": operation["id"]}))
+            undone = await client.call_tool("apply_undo", {"token": preview["token"]})
+            self.assertFalse(undone.is_error, undone.content)
+            self.assertTrue(payload(undone)["id"])
+            self.assertEqual(payload(undone)["after_hash"], metadata["sha256"])
+        self.run_session(body)
+        self.assertEqual(self.target.read_bytes(), self.original)
 
     def test_stale_token_and_stale_hash_refused_without_writes(self):
         target = self.target

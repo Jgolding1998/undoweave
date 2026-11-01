@@ -212,8 +212,8 @@
     }
   ],
   "undoweave_source_sha256": {
-    "engine.py": "4db3ded0b925fbe13d1bfb7e7b6b59c5ec425faf39eae611da2782598f6f044f",
-    "merge.py": "32b85b05510c292a25bca4ee151e9861f3b986c120f7867d0c601410efd13e78"
+    "engine.py": "d566d23651ecc44d6ce2c63b7e1ba1d2f423e8cdf697aad405340de145987853",
+    "merge.py": "00b6dde2b7381f8ce4b1857a9d02dd5b6acccd2bcf6926d05e7282af29547743"
   },
   "aider": [
     {

@@ -2,7 +2,14 @@ name: Checks
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+# Test PRs and the integrated main commit. Creating a release tag for that
+# already-tested commit must not repeat the same five jobs a second time.
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

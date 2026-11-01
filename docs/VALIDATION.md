@@ -2,7 +2,38 @@
 
 This is an early implementation, not a formal verification or a claim that no data loss is possible. All test edits and external comparisons used disposable projects. No paid model or API was used by the tests or benchmarks.
 
-## Local checks on 2026-10-31
+## Version 0.2 local checks on 2026-10-31
+
+The frozen upgrade suite ran **192 tests**, passing with seven expected local
+Windows privilege/platform skips. Its five actual MCP subprocess tests include
+range/metadata reads, exact edits, post-undo hashes and the HTML timeline resource.
+The independent repeated-line oracle covers 80,496 exhaustive small-alphabet
+events, 13,227 missing-final-newline cases and 60,000 seeded block events by
+default. Accepted results must match an exact permitted event-history outcome;
+safe refusals remain allowed. These generated cases are not independent real
+projects or a general accuracy estimate.
+
+Claude Code independently reproduced v0.1's crosswise repeated-line corruption,
+then added executable regressions and tested the stable-anchor replacement.
+The old release's passing tests had missed that defect. Use v0.2, and retain
+independent backups. The new policy deliberately refuses more adjacent/repeated
+context cases. [Merge policy](CONTRACT.md), [migration](MIGRATION.md).
+
+Additional checks cover actual Windows open handles/read-only attributes,
+interruption before/after replacement, binary/oversized pending targets,
+simultaneous fresh startup, the cross-Python Windows volume serial form, exact
+BOM/CRLF/bare-CR bytes and review formatting. Seven real-Git tests check HEAD,
+refs, the raw index, staged work and stash invariants through commits, amendments,
+branch switches and ignored files. Timeline tests verify HTML escaping, output
+privacy and a real CLI export. All edits used disposable projects.
+
+The [current comparison](COMPARISON.md) and [efficiency receipts](PERFORMANCE.md)
+record current source hashes and exact-result oracles. Their exposed fixtures
+demonstrate specific behaviors, not universal superiority. Hosted CI and fresh
+wheel installation are separate release checks; inspect Actions for completed
+results.
+
+## Historical v0.1 checks on 2026-10-31
 
 Windows, Python 3.13.11, official MCP SDK 2.3.0:
 

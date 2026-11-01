@@ -1,6 +1,6 @@
 """Command-line interface for UndoWeave.
 
-Every command except ``config --client claude|codex`` (plain-text instructions)
+Every command except ``history --format html`` and ``config --client claude|codex``
 prints one JSON document. Successful results go to stdout; errors go to stderr as
 ``{"ok": false, "error": {"code": ..., "message": ...}}`` with a non-zero exit
 status. No command runs shell commands, executes file content, or changes any
@@ -74,6 +74,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("read", help="read a file and print its sha256")
     p.add_argument("path")
+    p.add_argument("--start-line", type=int)
+    p.add_argument("--end-line", type=int)
+    p.add_argument("--metadata-only", action="store_true")
 
     p = sub.add_parser("edit", help="record a whole-file write or delete")
     p.add_argument("path")
@@ -84,8 +87,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--expected-hash", required=True, help="sha256 from 'read', or 'missing' for a new file")
     p.add_argument("--label", default="", help="short description of the edit")
 
+    p = sub.add_parser("replace", help="replace exactly one matching text block and record it")
+    p.add_argument("path")
+    p.add_argument("--old-file", required=True, help="UTF-8 file containing the exact old text")
+    p.add_argument("--new-file", required=True, help="UTF-8 file containing the replacement")
+    p.add_argument("--actor", required=True)
+    p.add_argument("--expected-hash", required=True)
+    p.add_argument("--label", default="")
+
+    p = sub.add_parser("adopt-legacy", help="explicitly bind reviewed v0.1 history to this project")
+    p.add_argument("--confirm-root", required=True, type=_abs_path, help="repeat the chosen project root after reviewing the migration guide")
+
     p = sub.add_parser("history", help="list recorded operations, newest first")
     p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--format", choices=("json", "html"), default="json", help="HTML is a standalone read-only summary timeline; review paths and labels before sharing")
 
     p = sub.add_parser("preview", help="preview undoing one recorded edit (no project file changes)")
     p.add_argument("edit_id")
@@ -435,16 +450,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "config":
             _config_or_usage_error(args)
             return 0
+        if args.command == "adopt-legacy":
+            if args.root is None:
+                raise UsageError("--root is required for 'adopt-legacy'")
+            Engine, _ = load_core()
+            _emit(Engine.adopt_legacy(args.root, args.state_dir, confirm_root=str(args.confirm_root.resolve())))
+            return 0
         if args.command == "edit":
             content = None if args.delete else _read_content_file(args.content_file)
             engine = _make_engine(args)
             result = engine.edit(args.path, content, actor=args.actor, expected_hash=args.expected_hash, label=args.label)
+        elif args.command == "replace":
+            if args.old_file == args.new_file == "-":
+                raise UsageError("At most one replacement input may read stdin.")
+            old_text, new_text = _read_content_file(args.old_file), _read_content_file(args.new_file)
+            engine = _make_engine(args)
+            result = engine.replace_text(args.path, old_text, new_text, args.actor, args.expected_hash, args.label)
         else:
             engine = _make_engine(args)
             if args.command == "read":
-                result = engine.read(args.path)
+                result = engine.read(args.path, args.start_line, args.end_line, args.metadata_only)
             elif args.command == "history":
-                result = {"changes": engine.history(args.limit)}
+                changes = engine.history(args.limit)
+                if args.format == "html":
+                    from .presentation import render_timeline
+                    # HTML declares UTF-8, including when redirected on Windows
+                    # whose default pipe encoding can otherwise be cp1252.
+                    if hasattr(sys.stdout, "reconfigure"):
+                        sys.stdout.reconfigure(encoding="utf-8")
+                    sys.stdout.write(render_timeline(changes, engine.status()) + "\n")
+                    sys.stdout.flush()
+                    return 0
+                result = {"changes": changes}
             elif args.command == "preview":
                 result = engine.preview_undo(args.edit_id)
             elif args.command == "undo":

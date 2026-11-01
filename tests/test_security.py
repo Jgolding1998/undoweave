@@ -472,8 +472,11 @@ class SecurityTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 self.engine.edit("file.txt", "agent\n", "agent-a", digest)
         target.write_bytes(b"later human work\n")
+        diagnostic = Engine(self.root, self.state)
+        self.assertEqual(diagnostic.status()["pending_count"], 1)
+        self.assertEqual(diagnostic.history()[0]["status"], "pending")
         with self.assertRaises(UndoWeaveError) as caught:
-            Engine(self.root, self.state)
+            diagnostic.edit("file.txt", "retry\n", "agent-a", diagnostic.read("file.txt")["sha256"])
         self.assertEqual(caught.exception.code, "recovery_required")
         self.assertEqual(target.read_bytes(), b"later human work\n")
 
@@ -490,8 +493,11 @@ class SecurityTests(unittest.TestCase):
         with patch.object(self.engine, "_replace", side_effect=interrupted_after_write_and_human_change):
             with self.assertRaises(OSError):
                 self.engine.edit("file.txt", "agent\n", "agent-a", digest)
+        diagnostic = Engine(self.root, self.state)
+        self.assertEqual(diagnostic.status()["pending_count"], 1)
+        self.assertEqual(diagnostic.history()[0]["status"], "pending")
         with self.assertRaises(UndoWeaveError) as caught:
-            Engine(self.root, self.state)
+            diagnostic.edit("file.txt", "retry\n", "agent-a", diagnostic.read("file.txt")["sha256"])
         self.assertEqual(caught.exception.code, "recovery_required")
         self.assertEqual(target.read_bytes(), b"human work after the actual replacement\n")
 

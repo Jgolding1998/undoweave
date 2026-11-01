@@ -4,8 +4,10 @@ UndoWeave aims to reverse one recorded text edit while preserving separate later
 work. Existing tools may intentionally restore an entire checkpoint or require a
 clean Git state. These are different behaviors, not a complete-product ranking.
 
-Eight exposed synthetic fixtures were run on Windows with Python 3.13.11,
-Node 24.13.0, and Git 2.52.0. No models or paid APIs were used.
+UndoWeave 0.2.0 was rerun against the same eight exposed synthetic fixtures and
+the same pinned upstream implementations on Windows with Python 3.13.11,
+Node 24.13.0, and Git 2.52.0. The fixtures were not changed for this rerun. No
+models or paid APIs were used.
 
 | Fixture | UndoWeave | pi-rewind core | Aider undo method |
 | --- | --- | --- | --- |
@@ -18,9 +20,25 @@ Node 24.13.0, and Git 2.52.0. No models or paid APIs were used.
 | Human recreated a path A had deleted | Refused, replacement unchanged | Restored checkpoint's original file | Method restored original over replacement |
 | Folder without Git | Undid the edit | Unsupported | Unsupported |
 
-All eight UndoWeave cases met the defined objective: five completed undos and
-three refusals that left project files unchanged. That is a development check,
-not a general accuracy estimate. No latency or reliability ranking is claimed.
+UndoWeave completed five selective undos and refused three operations, leaving
+project files unchanged in those three cases. All eight met their fixture's
+expected outcome, which includes refusing ambiguous recovery. **A safe refusal
+is not a completed selective undo.** Aider's method completed three commit undos,
+refused four operations, and did not support the non-Git fixture; pi-rewind
+restored seven checkpoints and did not support the non-Git fixture. The table
+shows which of these different behaviors met each selective-recovery objective.
+These are development checks, not a general accuracy estimate. No latency or
+reliability ranking is claimed.
+
+Version 0.2.0 uses stable, unique unchanged lines to separate agent changes from
+later work. Both same-file success fixtures already contain such a separator:
+the unchanged body line sits between the edited title and footer. The stricter
+algorithm therefore adds no refusals in this particular eight-case suite.
+Adjacent edits without a stable separator, repeated-line ambiguity, and moved
+context can require refusal even when a person could separate the changes.
+The suite does not measure that wider acceptance rate. Version 0.1.0 had a known
+repeated-line silent-corruption bug and should not be used as the safety baseline
+for these results.
 
 ## What actually ran
 

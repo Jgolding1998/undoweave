@@ -1,0 +1,286 @@
+{
+  "format": "undoweave-efficiency-v1",
+  "recorded_at_utc": "2026-11-01T01:24:15.021095+00:00",
+  "environment": {
+    "system": "Windows",
+    "release": "11",
+    "machine": "AMD64",
+    "python": "3.13.11",
+    "mcp": "2.3.0"
+  },
+  "source_sha256": {
+    "engine.py": "d566d23651ecc44d6ce2c63b7e1ba1d2f423e8cdf697aad405340de145987853",
+    "merge.py": "00b6dde2b7381f8ce4b1857a9d02dd5b6acccd2bcf6926d05e7282af29547743",
+    "mcp_server.py": "92314c6f75eb4bffabc3cec7ad654ba1d2c9f30bd596217ec127fea9846f0622",
+    "cli.py": "ab1cc47c845155ed9cc52b67d9692525249cd736fd70b7752d6b68438462475d"
+  },
+  "verified_installed_server_sha256": {
+    "engine.py": "d566d23651ecc44d6ce2c63b7e1ba1d2f423e8cdf697aad405340de145987853",
+    "merge.py": "00b6dde2b7381f8ce4b1857a9d02dd5b6acccd2bcf6926d05e7282af29547743",
+    "mcp_server.py": "92314c6f75eb4bffabc3cec7ad654ba1d2c9f30bd596217ec127fea9846f0622",
+    "cli.py": "ab1cc47c845155ed9cc52b67d9692525249cd736fd70b7752d6b68438462475d"
+  },
+  "merge": {
+    "scope": "Pure inverse_merge only; no disk, journal, MCP, model or end-to-end latency measurement.",
+    "fixture": "Unique lines; agent A replaces alternating lines, retaining unique unchanged separators; a later human replaces the last line, separated from A's last edit.",
+    "acceptance_policy": "Current merge requires stable unique shared separators between independently changed regions. Adjacent or repeated-context edits can now refuse even when the released matcher accepted them. Both implementations receive identical inputs in this accepted-fixture timing comparison.",
+    "repetitions": 3,
+    "order": "Alternating released/current order between repetitions; no separate warmup.",
+    "baseline": {
+      "tag": "v0.1.0",
+      "commit": "e37c81ad31cc2c8b26ad0c4a0849843f3ccc7626",
+      "merge_sha256": "32b85b05510c292a25bca4ee151e9861f3b986c120f7867d0c601410efd13e78"
+    },
+    "current_merge_sha256": "00b6dde2b7381f8ce4b1857a9d02dd5b6acccd2bcf6926d05e7282af29547743",
+    "cases": [
+      {
+        "lines": 500,
+        "agent_changed_lines": 249,
+        "later_human_changed_lines": 1,
+        "input_utf8_bytes": {
+          "before": 14500,
+          "after": 14251,
+          "current": 14248
+        },
+        "samples_seconds": {
+          "released": [
+            0.04218330001458526,
+            0.04344679997302592,
+            0.04413950000889599
+          ],
+          "current": [
+            0.0013796999119222164,
+            0.0011227000504732132,
+            0.0015928000211715698
+          ]
+        },
+        "median_seconds": {
+          "released": 0.04344679997302592,
+          "current": 0.0013796999119222164
+        },
+        "released_over_current_median_ratio": 31.490036056098063,
+        "exact_oracle_passed": true
+      },
+      {
+        "lines": 1000,
+        "agent_changed_lines": 499,
+        "later_human_changed_lines": 1,
+        "input_utf8_bytes": {
+          "before": 29000,
+          "after": 28501,
+          "current": 28498
+        },
+        "samples_seconds": {
+          "released": [
+            0.22244290006347,
+            0.2505387000273913,
+            0.2159283000510186
+          ],
+          "current": [
+            0.003025100100785494,
+            0.002931700088083744,
+            0.003059700131416321
+          ]
+        },
+        "median_seconds": {
+          "released": 0.22244290006347,
+          "current": 0.003025100100785494
+        },
+        "released_over_current_median_ratio": 73.53240972280909,
+        "exact_oracle_passed": true
+      },
+      {
+        "lines": 2000,
+        "agent_changed_lines": 999,
+        "later_human_changed_lines": 1,
+        "input_utf8_bytes": {
+          "before": 58000,
+          "after": 57001,
+          "current": 56998
+        },
+        "samples_seconds": {
+          "released": [
+            0.7264125999063253,
+            0.6648275000043213,
+            0.7165492000058293
+          ],
+          "current": [
+            0.005300899967551231,
+            0.004884199937805533,
+            0.004470000043511391
+          ]
+        },
+        "median_seconds": {
+          "released": 0.7165492000058293,
+          "current": 0.004884199937805533
+        },
+        "released_over_current_median_ratio": 146.70758960120995,
+        "exact_oracle_passed": true
+      },
+      {
+        "lines": 4000,
+        "agent_changed_lines": 1999,
+        "later_human_changed_lines": 1,
+        "input_utf8_bytes": {
+          "before": 116000,
+          "after": 114001,
+          "current": 113998
+        },
+        "samples_seconds": {
+          "released": [
+            2.8619443997740746,
+            3.177305500023067,
+            2.87257740017958
+          ],
+          "current": [
+            0.009141999995335937,
+            0.009597100084647536,
+            0.010689300019294024
+          ]
+        },
+        "median_seconds": {
+          "released": 2.87257740017958,
+          "current": 0.009597100084647536
+        },
+        "released_over_current_median_ratio": 299.31722862563834,
+        "exact_oracle_passed": true
+      }
+    ]
+  },
+  "mcp": {
+    "scope": "Actual stdio MCP tool calls; compact UTF-8 JSON request-params and CallToolResult bodies, including structuredContent and text content, excluding JSON-RPC framing, discovery, initialization and process startup.",
+    "not_measured": [
+      "model token counts",
+      "API cost",
+      "end-to-end latency",
+      "filesystem read reduction",
+      "general product ranking"
+    ],
+    "fixture": {
+      "language": "Python-shaped ASCII text",
+      "lines": 1000,
+      "utf8_bytes": 64000,
+      "range_read": {
+        "start_line": 499,
+        "end_line": 501
+      },
+      "unique_literal_replacement": true,
+      "edit_location_known_in_advance": true
+    },
+    "full_read_whole_write": {
+      "server": {
+        "name": "undoweave",
+        "version": "0.2.0"
+      },
+      "edit_phase": {
+        "calls": 2,
+        "request_body_utf8_bytes": 65231,
+        "response_body_utf8_bytes": 132603,
+        "total_body_utf8_bytes": 197834,
+        "per_call": [
+          {
+            "tool": "read_file",
+            "request_body_utf8_bytes": 54,
+            "response_body_utf8_bytes": 131635
+          },
+          {
+            "tool": "write_file",
+            "request_body_utf8_bytes": 65177,
+            "response_body_utf8_bytes": 968
+          }
+        ]
+      },
+      "undo_validation": {
+        "calls": 2,
+        "request_body_utf8_bytes": 192,
+        "response_body_utf8_bytes": 4101,
+        "total_body_utf8_bytes": 4293,
+        "per_call": [
+          {
+            "tool": "preview_undo",
+            "request_body_utf8_bytes": 82,
+            "response_body_utf8_bytes": 3059
+          },
+          {
+            "tool": "apply_undo",
+            "request_body_utf8_bytes": 110,
+            "response_body_utf8_bytes": 1042
+          }
+        ]
+      },
+      "complete_measured_roundtrip": {
+        "calls": 4,
+        "request_body_utf8_bytes": 65423,
+        "response_body_utf8_bytes": 136704,
+        "total_body_utf8_bytes": 202127
+      },
+      "edited_file_sha256": "7607579f232f737cb71feb07a017bc4b10195ffcfd4a4d87b2ead78f0351842e",
+      "after_undo_file_sha256": "d71b777e84251459af5efd3251ee9b875647c15d11b1a5950a23a39f43901a79",
+      "exact_edited_bytes_verified": true,
+      "undo_verified": true,
+      "later_human_edit_preserved": true
+    },
+    "metadata_range_exact_replace": {
+      "server": {
+        "name": "undoweave",
+        "version": "0.2.0"
+      },
+      "edit_phase": {
+        "calls": 3,
+        "request_body_utf8_bytes": 401,
+        "response_body_utf8_bytes": 2721,
+        "total_body_utf8_bytes": 3122,
+        "per_call": [
+          {
+            "tool": "read_file",
+            "request_body_utf8_bytes": 75,
+            "response_body_utf8_bytes": 645
+          },
+          {
+            "tool": "read_file",
+            "request_body_utf8_bytes": 86,
+            "response_body_utf8_bytes": 1108
+          },
+          {
+            "tool": "replace_text",
+            "request_body_utf8_bytes": 240,
+            "response_body_utf8_bytes": 968
+          }
+        ]
+      },
+      "undo_validation": {
+        "calls": 2,
+        "request_body_utf8_bytes": 192,
+        "response_body_utf8_bytes": 4103,
+        "total_body_utf8_bytes": 4295,
+        "per_call": [
+          {
+            "tool": "preview_undo",
+            "request_body_utf8_bytes": 82,
+            "response_body_utf8_bytes": 3059
+          },
+          {
+            "tool": "apply_undo",
+            "request_body_utf8_bytes": 110,
+            "response_body_utf8_bytes": 1044
+          }
+        ]
+      },
+      "complete_measured_roundtrip": {
+        "calls": 5,
+        "request_body_utf8_bytes": 593,
+        "response_body_utf8_bytes": 6824,
+        "total_body_utf8_bytes": 7417
+      },
+      "edited_file_sha256": "7607579f232f737cb71feb07a017bc4b10195ffcfd4a4d87b2ead78f0351842e",
+      "after_undo_file_sha256": "d71b777e84251459af5efd3251ee9b875647c15d11b1a5950a23a39f43901a79",
+      "exact_edited_bytes_verified": true,
+      "undo_verified": true,
+      "later_human_edit_preserved": true
+    },
+    "edit_body_bytes_saved": 194712,
+    "edit_body_reduction_percent": 98.42190927747505,
+    "same_file_outcomes_verified": true,
+    "limits": "The smaller flow makes three edit calls instead of two and still reads/hashes the entire file locally. These results do not imply lower latency or identical tokenization."
+  }
+}

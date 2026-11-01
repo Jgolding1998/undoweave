@@ -27,13 +27,13 @@ SAFE_EDITING_TEXT = """\
 
 UndoWeave records the edits you make *through its tools* so that one edit can
 later be undone without discarding other people's work. It only knows about
-edits made through `write_file`. Edits made any other way (your own built-in
+edits made through `write_file` or `replace_text`. Edits made any other way (your own built-in
 file tools, shell commands, a human's editor) are not recorded and cannot be
 undone by UndoWeave, although a later undo will try to keep them intact.
 
 Follow these rules:
 
-1. Edit files in this project only with the `write_file` tool. Do not use other
+1. Edit files in this project only with `write_file` or `replace_text`. Do not use other
    file-writing tools or shell commands for files you want to be undoable.
 2. Use one fixed `actor` name for the whole session (for example
    `claude-code`), so the history shows who made each edit. Do not impersonate
@@ -42,6 +42,9 @@ Follow these rules:
    `expected_hash`. For a file that does not exist yet, use `missing`. If the
    write is refused because the hash changed, read the file again, re-check
    what changed (someone else may have edited it), and only then retry.
+   For a small edit, request a line range or metadata_only with read_file; its
+   sha256 still covers the whole file. replace_text requires exactly one old_text
+   match, including overlapping occurrences. Do not guess unread source.
 4. To undo, call `list_changes` to find the edit id, then `preview_undo`.
    Show the user the returned diff and status in plain words.
 5. Get the user's explicit confirmation before calling `apply_undo`. A preview
@@ -54,6 +57,11 @@ Follow these rules:
 8. Tool annotations such as "read-only" or "destructive" are hints for your
    client. They are not permissions. The user's instructions decide what you
    may do.
+9. After a successful undo, use the returned after_hash and refresh the source
+   you need before editing again. Your pre-undo view is stale.
+10. A v0.1 journal with no workspace identity requires explicit local operator
+    adoption after review. There is no MCP migration/force tool. Never bypass
+    a legacy_journal or workspace_replaced refusal.
 
 Limits to be honest about: UndoWeave handles UTF-8 text files inside the pinned
 project root only. It refuses binary files, symlinks, protected paths, and
@@ -63,7 +71,7 @@ file hash at apply time and refuses if it changed.
 """
 
 SERVER_INSTRUCTIONS = (
-    "UndoWeave records UTF-8 text edits made through write_file and can undo a single "
+    "UndoWeave records UTF-8 text edits made through write_file or replace_text and can undo a single "
     "recorded edit while keeping later, non-overlapping edits by others. Read before "
     "writing and pass expected_hash; preview_undo before apply_undo; get the user's "
     "confirmation before apply_undo. Annotations are hints, not permissions. See the "
@@ -125,13 +133,15 @@ def build_server(engine: Any) -> MCPServer:
         title="Read a project file",
         description=(
             "Read a UTF-8 text file relative to the pinned project root. Returns path, exists, "
-            "content (null if missing) and sha256 ('missing' if absent). Use sha256 as "
-            "expected_hash for write_file."
+            "content and a full-file sha256 ('missing' if absent). Optional metadata_only omits "
+            "source text; start_line/end_line return an inclusive 1-based range. The full file "
+            "is still read locally to hash it. Use sha256 as expected_hash for recorded edits."
         ),
         annotations=ToolAnnotations(title="Read a project file", **read_only),
     )
-    def read_file(path: str) -> CallToolResult:
-        return guarded(lambda: engine.read(path))
+    def read_file(path: str, start_line: int | None = None, end_line: int | None = None, metadata_only: bool = False) -> CallToolResult:
+        """Optional inclusive 1-based range or metadata-only response; sha256 always covers the full file."""
+        return guarded(lambda: engine.read(path, start_line, end_line, metadata_only))
 
     @mcp.tool(
         name="write_file",
@@ -165,6 +175,20 @@ def build_server(engine: Any) -> MCPServer:
         return guarded(
             lambda: engine.edit(path, None if delete else content, actor=actor, expected_hash=expected_hash, label=label)
         )
+
+    @mcp.tool(
+        name="replace_text",
+        title="Replace one exact text match (recorded)",
+        description=(
+            "Replace exactly one occurrence of old_text in a file without retransmitting its whole content. "
+            "No regex or fuzzy matching. Empty or ambiguous old_text is refused. Requires the full-file "
+            "expected_hash from read_file, even when read_file returned only selected lines or metadata. "
+            "The edit is recorded and follows the same safety and undo limits as write_file."
+        ),
+        annotations=ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=False, open_world_hint=False),
+    )
+    def replace_text(path: str, old_text: str, new_text: str, actor: str, expected_hash: str, label: str = "") -> CallToolResult:
+        return guarded(lambda: engine.replace_text(path, old_text, new_text, actor, expected_hash, label))
 
     @mcp.tool(
         name="list_changes",
@@ -240,6 +264,20 @@ def build_server(engine: Any) -> MCPServer:
     )
     def instructions() -> str:
         return SAFE_EDITING_TEXT
+
+    @mcp.resource(
+        "undoweave://timeline",
+        name="timeline",
+        title="UndoWeave change timeline",
+        description="Read-only standalone HTML snapshot of the newest 50 journal summaries. Contains paths and labels, never file snapshots, diffs or tokens. Rendering support depends on the client.",
+        mime_type="text/html",
+    )
+    def timeline() -> str:
+        from .presentation import render_timeline
+        try:
+            return render_timeline(engine.history(50), engine.status())
+        except Exception:
+            raise ValueError("The timeline could not be read. Check workspace_status locally.") from None
 
     return mcp
 

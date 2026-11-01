@@ -137,14 +137,18 @@ Tools:
 
 | Tool | What it does | Annotation hints |
 | --- | --- | --- |
-| `read_file` | Read a UTF-8 file; returns `content` and `sha256` (`missing` if absent) | read-only |
+| `read_file` | Read all text, an inclusive line range, or metadata only; always returns full-file `sha256` (`missing` if absent) | read-only |
 | `write_file` | Replace a whole file (or `delete=true`) and record the edit; needs `expected_hash` and `actor` | destructive |
+| `replace_text` | Record exactly one unique text match replacement; needs the whole-file `expected_hash` and `actor` | destructive |
 | `list_changes` | Recorded edits and undos, newest first; no file contents | read-only |
 | `preview_undo` | Plan undoing one edit; returns `ready` + diff + token, `conflict`, or `already_undone`. Doesn't change project files, but stores a short-lived plan in the state directory | not read-only, not destructive |
 | `apply_undo` | Apply a previewed plan by its one-use token | destructive |
 | `workspace_status` | Version, root, state dir, counts, journal health, limits | read-only |
 
 Prompt: `safe_editing`. Resource: `undoweave://instructions` (same text).
+The `undoweave://timeline` resource returns a standalone HTML summary snapshot;
+client rendering support varies. It omits source/diffs/tokens but retains
+potentially private paths and labels. Read it only when the user wants history.
 
 **The annotations are hints for your MCP client's UI. They are not permissions
 and they do not block anything.** What the agent may do is decided by you and
@@ -155,7 +159,7 @@ by your client's approval settings.
 You can paste this into your project instructions (for example `CLAUDE.md`), or
 ask the agent to use the `safe_editing` prompt:
 
-> Edit files in this project only with UndoWeave's `write_file` tool, using the
+> Edit files in this project only with UndoWeave's `write_file` or `replace_text` tools, using the
 > fixed actor name `claude-code`. Always `read_file` first and pass its
 > `sha256` as `expected_hash` (`missing` for a new file). If a write is refused
 > as stale, read again and re-check before retrying. To undo, use
@@ -165,7 +169,7 @@ ask the agent to use the `safe_editing` prompt:
 
 ## What UndoWeave does not do
 
-- It only knows about edits made through `write_file`. An agent's built-in
+- It only knows about edits made through `write_file` or `replace_text`. An agent's built-in
   file tools, shell commands, and human editors are not recorded. A later
   undo tries to keep those changes, but they can't be undone through UndoWeave.
 - It does not lock files. Someone can change a file between preview and apply.
@@ -175,7 +179,16 @@ ask the agent to use the `safe_editing` prompt:
   over the size limits, protected paths (credentials, VCS metadata, the journal,
   dependency directories), and anything outside the pinned root.
 - If later edits overlap the edit you want to undo, or the alignment is
-  ambiguous, it refuses rather than guessing.
+  ambiguous, it refuses. Adjacent edits and regions separated only by repeated
+  braces/blank lines can also require manual review; only globally unique shared
+  lines separate independently reversible regions.
+
+Initialization creates a local `.undoweave-id` marker. Preserve it and exclude
+it from Git. Never bypass an identity error or adopt history through another
+editor. Legacy adoption is an explicit local operator task; see
+[migration](MIGRATION.md). An unreadable pending target blocks mutations while
+valid-root status/history remain available; unsafe path or journal integrity
+failures can still stop startup.
 
 ## CLI equivalents
 
@@ -185,9 +198,13 @@ Quote paths as described above if they contain spaces or shell characters.
 
 ```sh
 python -I -m undoweave --root ABS_PROJECT read notes.txt
+python -I -m undoweave --root ABS_PROJECT read notes.txt --start-line 10 --end-line 20
+python -I -m undoweave --root ABS_PROJECT read notes.txt --metadata-only
+python -I -m undoweave --root ABS_PROJECT replace notes.txt --old-file ABS_OLD_TEXT --new-file ABS_REPLACEMENT --actor me --expected-hash SHA256
 python -I -m undoweave --root ABS_PROJECT edit notes.txt --content-file ABS_NEW_CONTENT --actor me --expected-hash SHA256
 python -I -m undoweave --root ABS_PROJECT edit notes.txt --delete --actor me --expected-hash SHA256
 python -I -m undoweave --root ABS_PROJECT history --limit 20
+python -I -m undoweave --root ABS_PROJECT history --format html > timeline.html
 python -I -m undoweave --root ABS_PROJECT preview EDIT_ID
 python -I -m undoweave --root ABS_PROJECT undo TOKEN
 python -I -m undoweave --root ABS_PROJECT status

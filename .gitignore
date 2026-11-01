@@ -8,6 +8,7 @@ work/
 .pytest_cache/
 .hypothesis/
 .undoweave/
+.undoweave-id
 *.sqlite*
 .env*
 !.env.example
