@@ -1,4 +1,4 @@
-> **v0.1 undo safety notice:** a confirmed repeated-line alignment bug can restore the wrong text. Avoid using v0.1 undo on important work. A tested conservative fix is being prepared; preserve independent backups.
+> **Upgrade from v0.1:** it has a confirmed repeated-line alignment bug that can restore the wrong text. Version 0.2 includes the conservative fix and regression tests. Stop old clients and review [migration instructions](docs/MIGRATION.md) before reusing history. Preserve independent backups.
 
 <p align="center"><img src="docs/assets/banner.svg" alt="UndoWeave: undo the agent's edit, keep the rest" width="100%"></p>
 
