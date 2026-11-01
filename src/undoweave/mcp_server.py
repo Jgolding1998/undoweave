@@ -26,15 +26,18 @@ SAFE_EDITING_TEXT = """\
 # Editing safely with UndoWeave
 
 UndoWeave records the edits you make *through its tools* so that one edit can
-later be undone without discarding other people's work. It only knows about
-edits made through `write_file` or `replace_text`. Edits made any other way (your own built-in
-file tools, shell commands, a human's editor) are not recorded and cannot be
-undone by UndoWeave, although a later undo will try to keep them intact.
+later be undone without discarding other people's work. If the operator enabled
+the optional recorder at startup, it also observes net file changes inside the
+selected paths, including edits made with other tools or a human's editor.
+Observed changes have unknown authors and a capture interval, not an exact
+action time. They may combine several saves or miss fast changes. They are
+evidence for inspection, not selectively undoable agent actions.
 
 Follow these rules:
 
-1. Edit files in this project only with `write_file` or `replace_text`. Do not use other
-   file-writing tools or shell commands for files you want to be undoable.
+1. Use `write_file` or `replace_text` for files you want selectively undoable and
+   labeled with your caller-supplied actor name. Optional observation does not
+   replace these stronger recorded-edit guarantees.
 2. Use one fixed `actor` name for the whole session (for example
    `claude-code`), so the history shows who made each edit. Do not impersonate
    a human or another agent.
@@ -62,6 +65,16 @@ Follow these rules:
 10. A v0.1 journal with no workspace identity requires explicit local operator
     adoption after review. There is no MCP migration/force tool. Never bypass
     a legacy_journal or workspace_replaced refusal.
+11. For 'what changed?', start with workspace_status and list_changes, then
+    inspect_change for the relevant IDs. Cite the IDs and actual diff. Explain
+    coverage gaps and capture limits. An unknown author is not evidence that
+    Claude, Codex or a human made the change. No captured check evidence means
+    the outcome is unknown, not that tests passed. A suspicious change is not
+    proof of the cause of a failure.
+12. Observation times are conservative scan bounds, not exact sample/save
+    instants. Journal order and overlapping intervals do not prove actual save
+    order, a rename command, or simultaneous states across multiple files.
+    Separate individually evidenced versions from possible combined states.
 
 Limits to be honest about: UndoWeave handles UTF-8 text files inside the pinned
 project root only. It refuses binary files, symlinks, protected paths, and
@@ -71,11 +84,16 @@ file hash at apply time and refuses if it changed.
 """
 
 SERVER_INSTRUCTIONS = (
+    "For questions about past project changes, use list_changes and inspect_change for saved evidence "
+    "instead of relying only on conversation memory. Check workspace_status for recording coverage. "
     "UndoWeave records UTF-8 text edits made through write_file or replace_text and can undo a single "
     "recorded edit while keeping later, non-overlapping edits by others. Read before "
     "writing and pass expected_hash; preview_undo before apply_undo; get the user's "
     "confirmation before apply_undo. Annotations are hints, not permissions. See the "
-    "'safe_editing' prompt or the undoweave://instructions resource."
+    "'safe_editing' prompt or the undoweave://instructions resource. Optional startup-pinned "
+    "observation records net outside changes with unknown authors. Use workspace_status, "
+    "list_changes and inspect_change for evidence, and disclose recording gaps. "
+    "Observed changes are not selectively undoable agent actions."
 )
 
 
@@ -192,12 +210,26 @@ def build_server(engine: Any) -> MCPServer:
 
     @mcp.tool(
         name="list_changes",
-        title="List recorded changes",
-        description="List recorded edits and undos, newest first. Summaries only; no file contents.",
+        title="List project change history",
+        description="List persisted tool edits, undos and opt-in outside observations in journal order, newest first. Observed authors are unknown. Summaries only; no file contents.",
         annotations=ToolAnnotations(title="List recorded changes", **read_only),
     )
     def list_changes(limit: int = 50) -> CallToolResult:
         return guarded(lambda: {"changes": engine.history(limit)})
+
+    @mcp.tool(
+        name="inspect_change",
+        title="Inspect the evidence for one change",
+        description=(
+            "Read persisted before/after hashes, source and a bounded escaped diff for one "
+            "change ID from list_changes. Source is disclosed to this MCP client. Observed "
+            "changes describe net snapshots with unknown author and capture limits, not "
+            "private model reasoning or a proven failure cause. No project file is changed."
+        ),
+        annotations=ToolAnnotations(title="Inspect change evidence", **read_only),
+    )
+    def inspect_change(change_id: str) -> CallToolResult:
+        return guarded(lambda: engine.inspect_change(change_id))
 
     @mcp.tool(
         name="preview_undo",
@@ -241,7 +273,7 @@ def build_server(engine: Any) -> MCPServer:
     @mcp.tool(
         name="workspace_status",
         title="UndoWeave workspace status",
-        description="Version, pinned root, state directory, recorded count, journal health and limits. No file contents.",
+        description="Version, pinned root, state directory, journal health, counts, recording coverage and limits. Persisted recorder state is a last report, not verified liveness. No file contents.",
         annotations=ToolAnnotations(title="UndoWeave workspace status", **read_only),
     )
     def workspace_status() -> CallToolResult:

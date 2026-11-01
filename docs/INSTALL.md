@@ -13,17 +13,17 @@ macOS / Linux:
 
 ```sh
 python3 -m venv ~/.undoweave-venv
-~/.undoweave-venv/bin/python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.2.1"
+~/.undoweave-venv/bin/python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.3.0"
 ```
 
 Windows (PowerShell):
 
 ```powershell
 py -3 -m venv $HOME\.undoweave-venv
-& $HOME\.undoweave-venv\Scripts\python.exe -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.2.1"
+& $HOME\.undoweave-venv\Scripts\python.exe -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.3.0"
 ```
 
-This installs the `v0.2.1` release tag. Pin a release tag or a full commit
+This installs the `v0.3.0` release tag. Pin a release tag or a full commit
 SHA (`...undoweave@<40-character-sha>`), never a branch. A SHA is the strictest
 pin because a tag can in principle be moved. Leave out `[mcp]` if you only
 want the CLI.
@@ -47,6 +47,16 @@ conflict and that a stale undo token is refused, both without changing the
 file. It prints a JSON report and exits 0 only if every check passed.
 
 ## 3. Connect your agent
+
+To observe outside-tool saves, append `--watch src --watch tests` after
+`config` in a command below, choosing your actual project paths. The printed
+configuration pins those scopes for the server's lifetime. Recording is off
+when `--watch` is omitted. Run only one recorder per shared journal.
+
+Try `python -I -m undoweave demo --recording` in the installed environment for
+a disposable outside-save and restart example. See [RECORDING.md](RECORDING.md)
+before selecting paths: source is retained privately and observations have
+unknown authors, capture gaps and no selective undo.
 
 Let UndoWeave print the exact configuration for the interpreter you just
 installed into. It prints instructions only and never changes any configuration:

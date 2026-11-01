@@ -1,6 +1,36 @@
 # Validation record
 
-This is an early implementation, not a formal verification or a claim that no data loss is possible. All test edits and external comparisons used disposable projects. No paid model or API was used by the tests or benchmarks.
+This is an early implementation, not a formal verification or a claim that no data loss is possible. All test edits and external comparisons used disposable projects. Mechanical tests and benchmarks call no model or API. The separate reader exercise used the existing signed-in Claude Code installation.
+
+## Version 0.3 recording checks on 2026-11-01 UTC
+
+Local Windows testing ran 251 tests with eight expected platform/privilege skips.
+Actual MCP subprocess checks include startup-pinned outside saves, persisted
+inspection after reconnecting, unknown attribution, source-free HTML and refusal
+to selectively undo an observed entry. Existing selective undo checks remain in
+the same suite. Linux and other Python versions are separate hosted CI checks;
+use the completed Actions results for the exact release commit.
+
+The [public recording regression](../benchmarks/recording/README.md) replayed
+20 synthetic cases through real background polling and fresh-process inspection.
+It retrieved all 29 expected stable transitions (27 observations and two tool
+operations), with no missing or extra entries. Nine informative history pairs
+were distinguishable despite identical initial/final source; one stopped-recorder
+save/revert control stayed indistinguishable. These are stable-checkpoint cases,
+not a guarantee of capturing every save or a model accuracy score.
+
+An independent review reproduced and corrected Windows empty-lock contention,
+atomic-save sample identity, conservative ignore matching, and a scan-bound
+timestamp that could exclude the actual save. Maintained regressions cover those
+failures. A current-tree credential scan and pinned dependency audit found no
+credentials or known dependency advisories in their checked scope. Those checks
+do not establish universal security, encryption, or safe handling of every secret
+embedded in ordinary source.
+
+A separate [reader comparison](RECORDING_COMPARISON.md) gives the actual
+with/without-evidence results, including correct source-only uncertainty and
+unsupported claims from the evidence reader. It does not establish general
+superiority over Claude or Codex.
 
 ## Final 0.2.0 release checks on 2026-11-01 UTC
 

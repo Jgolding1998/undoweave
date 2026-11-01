@@ -22,10 +22,13 @@ async def check(root):
     params = StdioServerParameters(command=sys.executable, args=["-I", "-m", "undoweave", "--root", str(project), "--state-dir", str(root / "state"), "serve"])
     async with Client(params) as client:
         tools = (await client.list_tools()).tools
-        assert {tool.name for tool in tools} == {"read_file", "write_file", "replace_text", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
+        assert {tool.name for tool in tools} == {"read_file", "write_file", "replace_text", "list_changes", "inspect_change", "preview_undo", "apply_undo", "workspace_status"}
         read = (await client.call_tool("read_file", {"path": "sample.txt"})).structured_content
         changed = await client.call_tool("write_file", {"path": "sample.txt", "expected_hash": read["sha256"], "actor": "smoke-agent", "content": read["content"].replace("agent=old", "agent=new")})
         assert not changed.is_error
+        evidence = await client.call_tool("inspect_change", {"change_id": changed.structured_content["id"]})
+        assert not evidence.is_error
+        assert evidence.structured_content["before_hash"] == read["sha256"]
         target.write_bytes(target.read_bytes().replace(b"human=old", b"human=kept"))
         preview = await client.call_tool("preview_undo", {"edit_id": changed.structured_content["id"]})
         assert preview.structured_content["status"] == "ready"

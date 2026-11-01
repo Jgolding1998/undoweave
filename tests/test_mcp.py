@@ -36,7 +36,7 @@ try:
 except ImportError:
     CORE_AVAILABLE = False
 
-EXPECTED_TOOLS = {"read_file", "write_file", "replace_text", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
+EXPECTED_TOOLS = {"read_file", "write_file", "replace_text", "list_changes", "inspect_change", "preview_undo", "apply_undo", "workspace_status"}
 
 
 def server_env() -> dict:
@@ -72,8 +72,8 @@ class McpIntegrationTests(unittest.TestCase):
     def server_args(self) -> list[str]:
         return ["-m", "undoweave", "--root", str(self.root), "--state-dir", str(self.state), "serve"]
 
-    def run_session(self, body):
-        params = StdioServerParameters(command=sys.executable, args=self.server_args(), env=server_env())
+    def run_session(self, body, extra_args=()):
+        params = StdioServerParameters(command=sys.executable, args=[*self.server_args(), *extra_args], env=server_env())
 
         async def main():
             with open(self.errlog_path, "w", encoding="utf-8") as errlog:
@@ -83,6 +83,54 @@ class McpIntegrationTests(unittest.TestCase):
                     return await body(client)
 
         return asyncio.run(asyncio.wait_for(main(), timeout=120))
+
+    def test_startup_opt_in_records_an_outside_edit_without_a_logging_tool_call(self):
+        """The file is edited outside MCP; only startup config enables observation."""
+        async def body(client):
+            status = payload(await client.call_tool("workspace_status"))
+            self.assertIn("observation", status)
+            self.assertEqual(payload(await client.call_tool("list_changes"))["changes"], [])
+            changed = self.original.replace(b"alpha = 1", b"alpha = 9")
+            self.target.write_bytes(changed)
+            deadline = asyncio.get_running_loop().time() + 15
+            while True:
+                changes = payload(await client.call_tool("list_changes"))["changes"]
+                if changes:
+                    break
+                if asyncio.get_running_loop().time() >= deadline:
+                    self.fail("The startup-pinned recorder never observed the outside save")
+                await asyncio.sleep(.1)
+            self.assertEqual(len(changes), 1)
+            row = changes[0]
+            self.assertEqual(row["status"], "observed")
+            self.assertEqual(row["actor"], "unknown")
+            self.assertNotIn("before_text", row)
+            self.assertNotIn("after_text", row)
+            inspected = await client.call_tool("inspect_change", {"change_id": row["id"]})
+            self.assertFalse(inspected.is_error)
+            evidence = payload(inspected)
+            self.assertIn("-alpha = 1", evidence["diff"])
+            self.assertIn("+alpha = 9", evidence["diff"])
+            self.assertEqual(evidence["check_evidence"], "not_captured")
+            self.assertEqual(evidence["observation"]["time_basis"], "conservative_scan_bounds_not_exact_save_times")
+            self.assertEqual(evidence["observation"]["snapshot_basis"], "per_file_not_atomic_multi_file")
+            self.assertEqual(evidence["observation"]["order_basis"], "journal_sequence_not_actual_save_order")
+            self.assertEqual(evidence["observation"], row["observation"])
+            self.assertNotIn("token", evidence)
+            refused = await client.call_tool("preview_undo", {"edit_id": row["id"]})
+            self.assertTrue(refused.is_error)
+            self.assertEqual(payload(refused)["error"]["code"], "observation_not_undoable")
+            self.assertEqual(self.target.read_bytes(), changed)
+            timeline = (await client.read_resource("undoweave://timeline")).contents[0].text
+            self.assertNotIn("alpha = 9", timeline)
+            self.assertNotIn(str(self.state), timeline)
+            return row["id"]
+        change_id = self.run_session(body, ["--watch", "app.cfg", "--interval", ".25"])
+        # Persistence survives a new interpreter/client with no remembered conversation.
+        async def restarted(client):
+            evidence = payload(await client.call_tool("inspect_change", {"change_id": change_id}))
+            self.assertIn("+alpha = 9", evidence["diff"])
+        self.run_session(restarted)
 
     def assert_no_traceback(self, result):
         text = "".join(getattr(c, "text", "") for c in result.content)
@@ -105,7 +153,7 @@ class McpIntegrationTests(unittest.TestCase):
         self.assertNotIn(str(self.root), timeline.contents[0].text)
         self.assertNotIn(str(self.state), timeline.contents[0].text)
         self.assertEqual(set(tools), EXPECTED_TOOLS)
-        for name in ("read_file", "list_changes", "workspace_status"):
+        for name in ("read_file", "list_changes", "inspect_change", "workspace_status"):
             self.assertTrue(tools[name].annotations.read_only_hint, name)
             self.assertFalse(tools[name].annotations.destructive_hint, name)
         for name in ("write_file", "replace_text", "apply_undo"):

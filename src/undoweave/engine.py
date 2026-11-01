@@ -5,6 +5,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from difflib import unified_diff
 from hashlib import sha256
+import json
+import math
 import os
 from pathlib import Path
 import re
@@ -20,6 +22,7 @@ from .merge import inverse_merge, MergeConflict, physical_lines
 MAX_BYTES = 1_048_576
 MAX_LINES = 4000
 MAX_STATE_BYTES = 128 * MAX_BYTES
+MAX_OBSERVATION_BYTES = 256 * 1024
 PLAN_SECONDS = 300
 SCHEMA_VERSION = "2"
 WORKSPACE_MARKER = ".undoweave-id"
@@ -52,7 +55,7 @@ def _display_diff(text: str) -> str:
                          else "\\U" + format(ord(character), "08x")) for character in text)
 
 
-def _review_diff(current: str | None, result: str | None, path: str) -> str:
+def _review_diff(current: str | None, result: str | None, path: str, *, before_label="current", after_label="undo") -> str:
     def ending(line):
         return "CRLF" if line.endswith("\r\n") else "CR" if line.endswith("\r") else "LF" if line.endswith("\n") else "NONE"
     before_lines, after_lines = physical_lines(current or ""), physical_lines(result or "")
@@ -65,7 +68,7 @@ def _review_diff(current: str | None, result: str | None, path: str) -> str:
             body = line[:-2] if style == "CRLF" else line[:-1] if style != "NONE" else line
             shown.append(body + (f" [{style}]" if show_endings else "") + ("\n" if style != "NONE" else ""))
         return shown
-    lines = unified_diff(display(before_lines), display(after_lines), fromfile="current/" + path, tofile="undo/" + path)
+    lines = unified_diff(display(before_lines), display(after_lines), fromfile=before_label + "/" + path, tofile=after_label + "/" + path)
     # difflib does not add Git's EOF marker, and otherwise joins -old+new into
     # one misleading line when either side has no final newline.
     return "".join(line if line.endswith("\n") else line + "\n\\ No newline at end of file\n" for line in lines)
@@ -167,6 +170,15 @@ class Engine:
                         token TEXT PRIMARY KEY, edit_id TEXT NOT NULL, current_hash TEXT NOT NULL,
                         result_text TEXT, result_hash TEXT, created REAL NOT NULL, head INTEGER NOT NULL,
                         used INTEGER NOT NULL DEFAULT 0);
+                    CREATE TABLE IF NOT EXISTS observation_sessions (
+                        id TEXT PRIMARY KEY, started REAL NOT NULL, ended REAL,
+                        state TEXT NOT NULL, scopes_json TEXT NOT NULL, interval REAL NOT NULL,
+                        last_scan REAL, files INTEGER NOT NULL DEFAULT 0,
+                        skipped INTEGER NOT NULL DEFAULT 0, reason TEXT);
+                    CREATE TABLE IF NOT EXISTS observation_records (
+                        change_id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+                        observed_from REAL NOT NULL, observed_to REAL NOT NULL,
+                        related_json TEXT NOT NULL);
                 """)
                 self._bind_journal(db, adopt_legacy=_adopt_legacy)
                 db.commit()
@@ -310,8 +322,23 @@ class Engine:
 
     @contextmanager
     def _journal_lock(self):
+        with self._file_lock("session.lock", 5):
+            yield
+
+    @contextmanager
+    def _observer_lease(self):
+        try:
+            with self._file_lock("observer.lock", 0):
+                yield
+        except UndoWeaveError as error:
+            if error.code == "workspace_busy":
+                raise UndoWeaveError("observer_busy", "Another recorder already owns this journal's observation lease.") from None
+            raise
+
+    @contextmanager
+    def _file_lock(self, name, seconds):
         _check_chain(self.state_dir)
-        lock_path = self.state_dir / "session.lock"
+        lock_path = self.state_dir / name
         try:
             info = lock_path.lstat()
             if _linked(info) or not _regular(info):
@@ -324,9 +351,9 @@ class Engine:
             info = os.fstat(fd)
             if not _regular(info) or (os.name != "nt" and info.st_mode & 0o077):
                 raise UndoWeaveError("unsafe_state", "The journal lock must be a private, regular file.")
-            if info.st_size == 0:
-                os.write(fd, b"\0")
-            deadline = time.monotonic() + 5
+            # Windows can lock byte zero beyond EOF. Do not write a marker
+            # before locking: another process may already own that empty byte.
+            deadline = time.monotonic() + seconds
             while not acquired:
                 try:
                     os.lseek(fd, 0, os.SEEK_SET)
@@ -382,7 +409,7 @@ class Engine:
         finally:
             db.close()
 
-    def _path(self, path: str) -> Path:
+    def _path(self, path: str, *, require_parent: bool = True) -> Path:
         self._assert_root()
         if not isinstance(path, str) or not path or len(path) > 1024 or _unsafe_metadata(path):
             raise UndoWeaveError("unsafe_path", "Use a bounded project-relative path.")
@@ -408,7 +435,7 @@ class Engine:
             if (lowered in PROTECTED_DIRS or lowered in PROTECTED_NAMES or lowered == ".env"
                     or lowered.startswith(".env.") or lowered.endswith((".pem", ".key", ".p12", ".pfx", ".sqlite", ".sqlite3"))):
                 raise UndoWeaveError("protected_path", "The resolved path is protected.")
-        if not target.parent.is_dir():
+        if require_parent and not target.parent.is_dir():
             raise UndoWeaveError("missing_parent", "The parent directory must already exist.")
         if target == self.state_dir or self.state_dir in target.parents:
             raise UndoWeaveError("protected_path", "The journal cannot be edited through this tool.")
@@ -424,28 +451,40 @@ class Engine:
         # a conservative refusal rather than conflating their actual file writes.
         return os.path.normcase(path).replace("\\", "/")
 
-    def _read(self, path: str) -> tuple[str | None, int | None]:
-        target = self._path(path)
+    def _read(self, path: str, *, allow_missing_parent: bool = False, max_bytes: int = MAX_BYTES) -> tuple[str | None, int | None]:
+        target = self._path(path, require_parent=not allow_missing_parent)
         try:
             initial = target.lstat()
         except FileNotFoundError:
             return None, None
         if not _regular(initial) or _linked(initial):
             raise UndoWeaveError("unsafe_file", "Only regular files with a single link are supported.")
-        if initial.st_size > MAX_BYTES:
-            raise UndoWeaveError("content_limit", "File exceeds the 1 MiB limit.")
+        if initial.st_size > max_bytes:
+            raise UndoWeaveError("content_limit", "File exceeds the 1 MiB limit." if max_bytes == MAX_BYTES else "File exceeds the selected bounded read limit.")
         descriptor = os.open(target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
         try:
             opened = os.fstat(descriptor)
             if not _regular(opened) or (initial.st_dev, initial.st_ino) != (opened.st_dev, opened.st_ino):
                 raise UndoWeaveError("unsafe_file", "The file changed during validation.")
             with os.fdopen(descriptor, "rb", closefd=False) as handle:
-                data = handle.read(MAX_BYTES + 1)
+                data = handle.read(max_bytes + 1)
             final = os.fstat(descriptor)
             if (opened.st_size, opened.st_mtime_ns) != (final.st_size, final.st_mtime_ns):
                 raise UndoWeaveError("stale_file", "The file changed while it was being read.")
+            # Atomic-save editors can leave the old descriptor consistent while
+            # the pathname already names a replacement. Reject that old sample.
+            try:
+                named = self._path(path, require_parent=not allow_missing_parent).lstat()
+            except (FileNotFoundError, NotADirectoryError):
+                raise UndoWeaveError("stale_file", "The file changed while it was being read.") from None
+            if (_linked(named) or not _regular(named)
+                    or (named.st_dev, named.st_ino, named.st_size, named.st_mtime_ns)
+                    != (final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns)):
+                raise UndoWeaveError("stale_file", "The file changed while it was being read.")
         finally:
             os.close(descriptor)
+        if len(data) > max_bytes:
+            raise UndoWeaveError("content_limit", "The file grew beyond the selected content limit.")
         try:
             content = data.decode("utf-8")
         except UnicodeError:
@@ -512,7 +551,18 @@ class Engine:
 
     @staticmethod
     def _summary(row) -> dict:
-        return {key: row[key] for key in ("id", "path", "actor", "label", "before_hash", "after_hash", "status", "created", "undoes", "undone_by")}
+        result = {key: row[key] for key in ("id", "path", "actor", "label", "before_hash", "after_hash", "status", "created", "undoes", "undone_by")}
+        observed = row["status"] == "observed"
+        result.update(source="filesystem_poll" if observed else "undoweave_tool",
+                      attribution="unknown" if observed else "self_reported")
+        if observed and "session_id" in row.keys():
+            result["observation"] = {"session_id": row["session_id"], "observed_from": row["observed_from"],
+                                     "observed_to": row["observed_to"], "related_change_ids": json.loads(row["related_json"]),
+                                     "time_basis": "conservative_scan_bounds_not_exact_save_times",
+                                     "snapshot_basis": "per_file_not_atomic_multi_file",
+                                     "order_basis": "journal_sequence_not_actual_save_order",
+                                     "clock_order_uncertain": row["observed_to"] < row["observed_from"]}
+        return result
 
     def _replace(self, path: str, content: str | None, expected_hash: str) -> None:
         self._write_phase = "preparing"
@@ -673,7 +723,124 @@ class Engine:
         if type(limit) is not int or not 1 <= limit <= 200:
             raise UndoWeaveError("invalid_limit", "Choose a history limit from 1 to 200.")
         with self._connection() as db:
-            return [self._summary(row) for row in db.execute("SELECT id,path,actor,label,before_hash,after_hash,status,created,undoes,undone_by FROM changes ORDER BY sequence DESC LIMIT ?", (limit,))]
+            return [self._summary(row) for row in db.execute("""SELECT c.id,c.path,c.actor,c.label,c.before_hash,c.after_hash,c.status,c.created,c.undoes,c.undone_by,
+                o.session_id,o.observed_from,o.observed_to,o.related_json FROM changes c
+                LEFT JOIN observation_records o ON o.change_id=c.id ORDER BY c.sequence DESC LIMIT ?""", (limit,))]
+
+    def begin_observation(self, scopes, interval=1.0) -> dict:
+        """Internal recorder API; caller holds the exclusive observation lease."""
+        if (not isinstance(scopes, (tuple, list)) or not 1 <= len(scopes) <= 16
+                or type(interval) not in (int, float) or not 0.25 <= interval <= 60):
+            raise UndoWeaveError("invalid_observation", "Use 1-16 relative scopes and a 0.25-60 second interval.")
+        canonical = list(dict.fromkeys(self._canonical(scope) for scope in scopes))
+        with self._connection() as db:
+            if self._used_storage(db) + 65536 > MAX_STATE_BYTES or db.execute("SELECT COUNT(*) FROM observation_sessions").fetchone()[0] >= 1000:
+                raise UndoWeaveError("storage_limit", "The journal reached its observation-session limit.")
+            if db.execute("SELECT EXISTS(SELECT 1 FROM changes WHERE status='pending')").fetchone()[0]:
+                raise UndoWeaveError("recovery_required", "Resolve interrupted writes before starting observation.")
+            now = time.time()
+            db.execute("UPDATE observation_sessions SET state='interrupted',ended=?,reason='unclean_stop' WHERE state IN ('active','initializing')", (now,))
+            session_id = uuid.uuid4().hex
+            db.execute("INSERT INTO observation_sessions(id,started,state,scopes_json,interval) VALUES (?,?,?,?,?)",
+                       (session_id, now, "initializing", json.dumps(canonical), interval))
+            db.commit()
+            return {"session_id": session_id, "scopes": canonical, "head": db.execute("SELECT COALESCE(MAX(sequence),0) FROM changes").fetchone()[0]}
+
+    def _observation_progress(self, session_id, *, files, skipped):
+        with self._connection() as db:
+            db.execute("UPDATE observation_sessions SET state='active',last_scan=?,files=?,skipped=? WHERE id=? AND state IN ('active','initializing')",
+                       (time.time(), files, skipped, session_id))
+            db.commit()
+
+    def _observation_head(self):
+        with self._connection() as db:
+            return db.execute("SELECT COALESCE(MAX(sequence),0) FROM changes").fetchone()[0]
+
+    def append_observation(self, session_id, path, before, after, observed_from, observed_to, *, recorded_head=0):
+        """Append a sampled net transition, never a pending project-write intent."""
+        if (any(type(value) not in (int, float) or not math.isfinite(value) for value in (observed_from, observed_to))
+                or type(recorded_head) is not int or recorded_head < 0):
+            raise UndoWeaveError("invalid_observation", "Use finite sample times and a valid journal head.")
+        for text in (before, after):
+            _validate_content(text)
+            if text is not None and len(text.encode("utf-8")) > MAX_OBSERVATION_BYTES:
+                raise UndoWeaveError("observation_limit", "Observed text exceeds the 256 KiB per-file limit.")
+        if before == after:
+            raise UndoWeaveError("no_change", "The observed snapshots are identical.")
+        path = self._path(path, require_parent=False).relative_to(self.root).as_posix()
+        with self._connection() as db:
+            session = db.execute("SELECT * FROM observation_sessions WHERE id=?", (session_id,)).fetchone()
+            if session is None or session["state"] not in {"active", "initializing"}:
+                raise UndoWeaveError("observation_stopped", "The observation session is not active.")
+            scopes = json.loads(session["scopes_json"])
+            if not any(path == scope or path.startswith(scope + "/") for scope in scopes):
+                raise UndoWeaveError("unsafe_path", "The observation is outside the pinned scopes.")
+            if db.execute("SELECT EXISTS(SELECT 1 FROM changes WHERE status='pending')").fetchone()[0]:
+                raise UndoWeaveError("recovery_required", "Interrupted writes block new observations.")
+            if _hash(self._read(path, allow_missing_parent=True, max_bytes=MAX_OBSERVATION_BYTES)[0]) != _hash(after):
+                raise UndoWeaveError("stale_file", "The sampled file changed before observation was recorded.")
+            known = db.execute("SELECT id,before_hash,after_hash FROM changes WHERE path=? AND sequence>? AND status='applied' ORDER BY sequence LIMIT 201",
+                               (path, recorded_head)).fetchall()
+            if len(known) > 200:
+                raise UndoWeaveError("observation_limit", "Too many recorded writes occurred between samples.")
+            accounted, contiguous = _hash(before), bool(known)
+            for item in known:
+                contiguous = contiguous and item["before_hash"] == accounted
+                accounted = item["after_hash"]
+            if contiguous and accounted == _hash(after):
+                return {"status": "represented", "head": db.execute("SELECT COALESCE(MAX(sequence),0) FROM changes").fetchone()[0]}
+            payload = len((before or "").encode()) + len((after or "").encode())
+            if self._used_storage(db) + 2 * payload + 65536 > MAX_STATE_BYTES:
+                raise UndoWeaveError("storage_limit", "The journal reached its observation storage limit.")
+            change_id = uuid.uuid4().hex
+            db.execute("INSERT INTO changes(id,path,path_key,actor,label,before_text,after_text,before_hash,after_hash,status,created) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                       (change_id, path, self._path_key(path), "unknown", "Observed net change between samples", before, after, _hash(before), _hash(after), "observed", time.time()))
+            db.execute("INSERT INTO observation_records VALUES (?,?,?,?,?)",
+                       (change_id, session_id, observed_from, observed_to, json.dumps([item["id"] for item in known])))
+            db.commit()
+            return {"status": "observed", "id": change_id, "head": db.execute("SELECT MAX(sequence) FROM changes").fetchone()[0]}
+
+    def end_observation(self, session_id, reason="stopped"):
+        if not isinstance(reason, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", reason):
+            raise UndoWeaveError("invalid_observation", "Use a bounded observation stop reason.")
+        with self._connection() as db:
+            db.execute("UPDATE observation_sessions SET state=?,ended=?,reason=? WHERE id=? AND state IN ('active','initializing')",
+                       ("stopped" if reason == "stopped" else "interrupted" if reason == "interrupted" else "error", time.time(), reason, session_id))
+            db.commit()
+
+    def observation_status(self):
+        with self._connection() as db:
+            return self._observation_status(db)
+
+    @staticmethod
+    def _observation_status(db):
+        row = db.execute("SELECT rowid,* FROM observation_sessions ORDER BY rowid DESC LIMIT 1").fetchone()
+        if row is None:
+            return {"state": "off", "liveness": "not_checked", "check_evidence": "not_captured"}
+        return {"session_id": row["id"], "state": row["state"], "liveness": "not_checked", "started": row["started"], "ended": row["ended"],
+                "last_scan": row["last_scan"], "scopes": json.loads(row["scopes_json"]), "files": row["files"], "skipped": row["skipped"], "reason": row["reason"],
+                "check_evidence": "not_captured", "limitations": "Sampled net changes can combine actors and miss intermediate saves; author and cause are unknown."}
+
+    def inspect_change(self, change_id):
+        if not isinstance(change_id, str) or not re.fullmatch(r"[a-f0-9]{32}", change_id):
+            raise UndoWeaveError("invalid_id", "Use a change ID returned by history.")
+        with self._connection() as db:
+            row = db.execute("SELECT c.*,o.session_id,o.observed_from,o.observed_to,o.related_json FROM changes c LEFT JOIN observation_records o ON o.change_id=c.id WHERE c.id=?", (change_id,)).fetchone()
+            if row is None:
+                raise UndoWeaveError("unknown_change", "No recorded or observed change has that ID.")
+            self._row_check(row)
+            raw = _review_diff(row["before_text"], row["after_text"], row["path"], before_label="before", after_label="after")
+            diff = _display_diff(raw)
+            note = {
+                "observed": "Two matching filesystem samples, with unknown authorship. This is a net transition, not one verified agent action.",
+                "applied": "Applied or recovery-classified recorded operation. This is historical evidence, not a check of the current file or author identity.",
+                "pending": "Unverified write intent. Its after snapshot may never have existed in the project.",
+                "aborted": "Refused write intent. Its after snapshot was not applied by this recorded operation.",
+            }.get(row["status"], "Unverified journal entry.")
+            return {**self._summary(row), "diff": diff[:16000], "diff_truncated": len(diff) > 16000,
+                    "diff_limit": 16000, "display_escaped": diff != raw, "check_evidence": "not_captured",
+                    "cause": "not_inferred", "undo_supported": row["status"] == "applied",
+                    "effect_verified": row["status"] in {"applied", "observed"}, "evidence_note": note}
 
     def preview_undo(self, edit_id: str) -> dict:
         if not isinstance(edit_id, str) or not re.fullmatch(r"[a-f0-9]{32}", edit_id):
@@ -682,6 +849,8 @@ class Engine:
             self._recover(db)
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM changes WHERE id=?", (edit_id,)).fetchone()
+            if row is not None and row["status"] == "observed":
+                raise UndoWeaveError("observation_not_undoable", "This is a sampled net change with unknown authorship, not one recorded agent edit. Inspect it; automatic undo is not supported.")
             if row is None or row["status"] != "applied":
                 raise UndoWeaveError("unknown_change", "No applied change has that ID.")
             self._row_check(row)
@@ -750,4 +919,4 @@ class Engine:
     def status(self) -> dict:
         with self._connection() as db:
             pending = db.execute("SELECT path FROM changes WHERE status='pending' LIMIT 20").fetchall()
-            return {"version": __version__, "root": str(self.root), "state_dir": str(self.state_dir), "recorded_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='applied'").fetchone()[0], "pending_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='pending'").fetchone()[0], "pending_paths": [row[0] for row in pending], "recovery_notice": "Pending operations block mutations until safely classified; status and history remain available." if pending else None, "limits": {"bytes_per_file": MAX_BYTES, "lines_per_file": MAX_LINES, "history_limit": 200, "preview_seconds": PLAN_SECONDS}, "tracking": "Only edits made through UndoWeave are attributed; actor labels are self-reported."}
+            return {"version": __version__, "root": str(self.root), "state_dir": str(self.state_dir), "observation": self._observation_status(db), "recorded_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='applied'").fetchone()[0], "pending_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='pending'").fetchone()[0], "pending_paths": [row[0] for row in pending], "recovery_notice": "Pending operations block mutations until safely classified; status and history remain available." if pending else None, "limits": {"bytes_per_file": MAX_BYTES, "lines_per_file": MAX_LINES, "history_limit": 200, "preview_seconds": PLAN_SECONDS}, "tracking": "Tool actors are self-reported; opt-in filesystem observations have unknown authorship and may miss intermediate states."}
