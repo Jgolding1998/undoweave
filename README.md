@@ -1,3 +1,5 @@
+> **v0.1 undo safety notice:** a confirmed repeated-line alignment bug can restore the wrong text. Avoid using v0.1 undo on important work. A tested conservative fix is being prepared; preserve independent backups.
+
 <p align="center"><img src="docs/assets/banner.svg" alt="UndoWeave: undo the agent's edit, keep the rest" width="100%"></p>
 
 <h1 align="center">UndoWeave</h1>
