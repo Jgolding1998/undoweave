@@ -1,6 +1,6 @@
 {
   "format": "undoweave-efficiency-v1",
-  "recorded_at_utc": "2026-11-01T01:24:15.021095+00:00",
+  "recorded_at_utc": "2026-11-01T01:41:27.491670+00:00",
   "environment": {
     "system": "Windows",
     "release": "11",
@@ -12,13 +12,13 @@
     "engine.py": "d566d23651ecc44d6ce2c63b7e1ba1d2f423e8cdf697aad405340de145987853",
     "merge.py": "00b6dde2b7381f8ce4b1857a9d02dd5b6acccd2bcf6926d05e7282af29547743",
     "mcp_server.py": "92314c6f75eb4bffabc3cec7ad654ba1d2c9f30bd596217ec127fea9846f0622",
-    "cli.py": "ab1cc47c845155ed9cc52b67d9692525249cd736fd70b7752d6b68438462475d"
+    "cli.py": "4b7185cd9619f857eff52e2db2b714a11a1f942d49bafee078396eb26a2014c6"
   },
   "verified_installed_server_sha256": {
     "engine.py": "d566d23651ecc44d6ce2c63b7e1ba1d2f423e8cdf697aad405340de145987853",
     "merge.py": "00b6dde2b7381f8ce4b1857a9d02dd5b6acccd2bcf6926d05e7282af29547743",
     "mcp_server.py": "92314c6f75eb4bffabc3cec7ad654ba1d2c9f30bd596217ec127fea9846f0622",
-    "cli.py": "ab1cc47c845155ed9cc52b67d9692525249cd736fd70b7752d6b68438462475d"
+    "cli.py": "4b7185cd9619f857eff52e2db2b714a11a1f942d49bafee078396eb26a2014c6"
   },
   "merge": {
     "scope": "Pure inverse_merge only; no disk, journal, MCP, model or end-to-end latency measurement.",
@@ -44,21 +44,21 @@
         },
         "samples_seconds": {
           "released": [
-            0.04218330001458526,
-            0.04344679997302592,
-            0.04413950000889599
+            0.048644299851730466,
+            0.04775609984062612,
+            0.047754700062796474
           ],
           "current": [
-            0.0013796999119222164,
-            0.0011227000504732132,
-            0.0015928000211715698
+            0.001483200117945671,
+            0.0012851001229137182,
+            0.0013212000485509634
           ]
         },
         "median_seconds": {
-          "released": 0.04344679997302592,
-          "current": 0.0013796999119222164
+          "released": 0.04775609984062612,
+          "current": 0.0013212000485509634
         },
-        "released_over_current_median_ratio": 31.490036056098063,
+        "released_over_current_median_ratio": 36.14600218415296,
         "exact_oracle_passed": true
       },
       {
@@ -72,21 +72,21 @@
         },
         "samples_seconds": {
           "released": [
-            0.22244290006347,
-            0.2505387000273913,
-            0.2159283000510186
+            0.1833432000130415,
+            0.18203410017304122,
+            0.1893164999783039
           ],
           "current": [
-            0.003025100100785494,
-            0.002931700088083744,
-            0.003059700131416321
+            0.0029088000301271677,
+            0.0028059000615030527,
+            0.002570200012996793
           ]
         },
         "median_seconds": {
-          "released": 0.22244290006347,
-          "current": 0.003025100100785494
+          "released": 0.1833432000130415,
+          "current": 0.0028059000615030527
         },
-        "released_over_current_median_ratio": 73.53240972280909,
+        "released_over_current_median_ratio": 65.34202786781685,
         "exact_oracle_passed": true
       },
       {
@@ -100,21 +100,21 @@
         },
         "samples_seconds": {
           "released": [
-            0.7264125999063253,
-            0.6648275000043213,
-            0.7165492000058293
+            0.7899502001237124,
+            0.7032839998137206,
+            0.6872109000105411
           ],
           "current": [
-            0.005300899967551231,
-            0.004884199937805533,
-            0.004470000043511391
+            0.005436700070276856,
+            0.004840899957343936,
+            0.005553000140935183
           ]
         },
         "median_seconds": {
-          "released": 0.7165492000058293,
-          "current": 0.004884199937805533
+          "released": 0.7032839998137206,
+          "current": 0.005436700070276856
         },
-        "released_over_current_median_ratio": 146.70758960120995,
+        "released_over_current_median_ratio": 129.3586165730689,
         "exact_oracle_passed": true
       },
       {
@@ -128,21 +128,21 @@
         },
         "samples_seconds": {
           "released": [
-            2.8619443997740746,
-            3.177305500023067,
-            2.87257740017958
+            2.8894462999887764,
+            3.2277881000190973,
+            3.0575874999631196
           ],
           "current": [
-            0.009141999995335937,
-            0.009597100084647536,
-            0.010689300019294024
+            0.010468199849128723,
+            0.011074000038206577,
+            0.011798899853602052
           ]
         },
         "median_seconds": {
-          "released": 2.87257740017958,
-          "current": 0.009597100084647536
+          "released": 3.0575874999631196,
+          "current": 0.011074000038206577
         },
-        "released_over_current_median_ratio": 299.31722862563834,
+        "released_over_current_median_ratio": 276.1050649642487,
         "exact_oracle_passed": true
       }
     ]
@@ -193,8 +193,8 @@
       "undo_validation": {
         "calls": 2,
         "request_body_utf8_bytes": 192,
-        "response_body_utf8_bytes": 4101,
-        "total_body_utf8_bytes": 4293,
+        "response_body_utf8_bytes": 4103,
+        "total_body_utf8_bytes": 4295,
         "per_call": [
           {
             "tool": "preview_undo",
@@ -204,15 +204,15 @@
           {
             "tool": "apply_undo",
             "request_body_utf8_bytes": 110,
-            "response_body_utf8_bytes": 1042
+            "response_body_utf8_bytes": 1044
           }
         ]
       },
       "complete_measured_roundtrip": {
         "calls": 4,
         "request_body_utf8_bytes": 65423,
-        "response_body_utf8_bytes": 136704,
-        "total_body_utf8_bytes": 202127
+        "response_body_utf8_bytes": 136706,
+        "total_body_utf8_bytes": 202129
       },
       "edited_file_sha256": "7607579f232f737cb71feb07a017bc4b10195ffcfd4a4d87b2ead78f0351842e",
       "after_undo_file_sha256": "d71b777e84251459af5efd3251ee9b875647c15d11b1a5950a23a39f43901a79",

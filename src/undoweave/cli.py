@@ -125,7 +125,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _emit(payload: Any, stream=None) -> None:
     stream = stream or sys.stdout
-    stream.write(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, default=str) + "\n")
+    # Escaped JSON preserves Unicode values on ASCII and legacy Windows pipes,
+    # including successful write acknowledgements emitted after bytes change.
+    stream.write(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True, default=str) + "\n")
     stream.flush()
 
 
