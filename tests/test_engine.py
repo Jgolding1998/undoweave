@@ -24,14 +24,14 @@ class EngineTests(unittest.TestCase):
         return self.engine.edit(name, text, actor, self.engine.read(name)["sha256"])
 
     def test_two_agents_and_human_interleaved(self):
-        self.put("a=0\nb=0\nhuman=0\n")
-        a = self.edit("a=1\nb=0\nhuman=0\n")
-        b = self.edit("a=1\nb=1\nhuman=0\n", actor="agent-b")
-        self.put("a=1\nb=1\nhuman=1\n")
+        self.put("a=0\nseparator-a\nb=0\nseparator-b\nhuman=0\n")
+        a = self.edit("a=1\nseparator-a\nb=0\nseparator-b\nhuman=0\n")
+        b = self.edit("a=1\nseparator-a\nb=1\nseparator-b\nhuman=0\n", actor="agent-b")
+        self.put("a=1\nseparator-a\nb=1\nseparator-b\nhuman=1\n")
         self.engine.apply_undo(self.engine.preview_undo(a["id"])["token"])
-        self.assertEqual(self.engine.read("app.txt")["content"], "a=0\nb=1\nhuman=1\n")
+        self.assertEqual(self.engine.read("app.txt")["content"], "a=0\nseparator-a\nb=1\nseparator-b\nhuman=1\n")
         self.engine.apply_undo(self.engine.preview_undo(b["id"])["token"])
-        self.assertEqual(self.engine.read("app.txt")["content"], "a=0\nb=0\nhuman=1\n")
+        self.assertEqual(self.engine.read("app.txt")["content"], "a=0\nseparator-a\nb=0\nseparator-b\nhuman=1\n")
 
     def test_create_delete_empty_and_redo(self):
         created = self.edit("", name="empty.txt")
@@ -112,13 +112,14 @@ class EngineTests(unittest.TestCase):
 
 
 class MergeOracleTests(unittest.TestCase):
-    def test_1000_generated_disjoint_replacements_preserve_exact_oracle(self):
+    def test_1000_generated_separated_replacements_preserve_exact_oracle(self):
         rng = random.Random(20261031)
         for case in range(1000):
             n = rng.randrange(5, 80)
             ending = rng.choice(["\n", "\r\n"])
             original = [f"line_{case}_{i}_original{ending}" for i in range(n)]
-            agent_index, human_index = rng.sample(range(n), 2)
+            agent_index = rng.randrange(n)
+            human_index = rng.choice([index for index in range(n) if abs(index - agent_index) > 1])
             after = original.copy()
             after[agent_index] = f"agent_changed_{case}{ending}"
             current = after.copy()
@@ -134,6 +135,10 @@ class MergeOracleTests(unittest.TestCase):
     def test_overlap_is_refused(self):
         with self.assertRaises(MergeConflict):
             inverse_merge("a\nb\nc\n", "a\nAGENT\nc\n", "a\nHUMAN\nc\n")
+
+    def test_adjacent_edits_without_shared_separator_are_refused(self):
+        with self.assertRaises(MergeConflict):
+            inverse_merge("agent=0\nhuman=0\n", "agent=1\nhuman=0\n", "agent=1\nhuman=1\n")
 
     def test_ambiguous_repeated_blocks_are_refused(self):
         with self.assertRaises(MergeConflict):

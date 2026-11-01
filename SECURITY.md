@@ -15,11 +15,14 @@ The MCP client and its agent are trusted with file-editing access to the selecte
 - Credential-like names, dependency directories, journal files and version-control directories are denied. This list cannot identify every secret in an otherwise ordinary file.
 - All existing path components are inspected for links and Windows reparse points. Selected files must be regular and single-linked. Open descriptors are checked against their initial identity.
 - Writes require an expected content hash. Undo additionally requires a fresh, one-use preview token and unchanged same-file recorded history. Preview result text is recomputed at apply time.
-- Overlapping changes, ambiguous repeated context, adjacent insertions and comparison/review limits refuse without changing project files. Independent edits on the same line may therefore conflict.
+- Only shared lines occurring exactly once in all three snapshots, in unchanged order, separate edits for selective undo. If both versions changed a region between those anchors, the entire undo refuses. Adjacent edits, repeated braces and blank lines can require manual review even when changes look separate. Comparison/review limits also refuse without changing project files.
 - Same-journal operations hold an OS file lock across journal commits and file replacement. Temporary file creation is exclusive; content is flushed before atomic replacement. Existing file permission bits are preserved on replacement.
 - SQLite uses full synchronization. A durable pending intent is committed before any project write. Interrupted operations whose current bytes match the recorded before/after state can be classified on restart. An unknown result blocks future mutations for manual investigation.
-- Known preflight failures are marked aborted while holding the lock. Failures during/after an attempted filesystem mutation retain their intent for recovery; error type alone never determines whether a write happened.
+- Known preflight failures are marked aborted while holding the lock. A filesystem replacement refusal is also marked aborted only when a locked re-read verifies the exact before bytes. Otherwise the intent remains for recovery; an exception type alone never establishes whether a write happened. Status and history remain available when pending content cannot be classified; mutations remain blocked.
 - The state directory is resolved and checked by path and directory identity before creation, so spelling aliases cannot place snapshots inside the project. Preview control/direction characters are shown as visible escapes.
+- Journal bindings include the canonical root, directory identity and a protected random `.undoweave-id` marker. Directory and marker identity are checked per operation; each database connection also verifies its binding. Ordinary directory replacement and foreign-backup swaps refuse even if selected file bytes match an old snapshot.
+- The marker is source-free local metadata created on first initialization, including server startup. Keep it private to the workspace and exclude it from Git. It is not an authentication credential; deliberately copying metadata or hostile same-user filesystem changes remain outside sandbox guarantees. A nonempty legacy journal requires [explicit reviewed adoption](docs/MIGRATION.md), never a tool-triggered automatic migration.
+- Preview records contain result hashes rather than duplicate source snapshots. Used/expired plans are collected before capacity checks; free database pages are reusable. Writes reserve headroom for SQLite's status/link updates before mutating a project file.
 
 ## Explicit exclusions
 
@@ -29,13 +32,13 @@ Privileged filesystem mounts can make an otherwise external state directory reac
 
 Hashes detect mismatches, not malicious journal rewriting by the same user. Actor labels are self-reported. UndoWeave cannot infer authorship, intent, or history for edits made elsewhere; identical resulting text is indistinguishable. Text movement or human recreation of identical content may also be indistinguishable.
 
-There is no atomic transaction spanning several files. This release tracks text, not complete filesystem metadata. Recreating a deleted file uses owner-only mode rather than restoring its old executable bits. Atomic replacement does not preserve custom Windows ACLs, ownership, extended attributes or alternate streams. Existing POSIX mode bits are preserved for replacements; review permissions after recovery when they matter.
+There is no atomic transaction spanning several files. This release tracks text, not complete filesystem metadata. Creating or recreating a file uses owner-only mode rather than restoring its old executable bits. Atomic replacement does not preserve custom Windows ACLs, hidden/system attributes, ownership, extended attributes or alternate streams. Existing POSIX mode bits are preserved for replacements; review permissions after recovery when they matter.
 
 Filesystem and SQLite durability depend on the OS/filesystem and storage hardware. A process crash or failed temporary-file cleanup can leave an orphan `.undoweave-write-*` file containing source beside the target. Inspect and remove only confirmed orphan files when UndoWeave is stopped.
 
 ## Local source retention
 
-Before/after snapshots and preview results are plaintext in `journal.sqlite3`. State is outside the project by default under `%LOCALAPPDATA%/UndoWeave/workspaces/` on Windows, or `~/.local/state/UndoWeave/workspaces/` elsewhere. `workspace_status` reports the exact directory. A supplied state directory must be outside the project.
+Before/after snapshots are plaintext in `journal.sqlite3`; preview records store hashes rather than additional source copies. State is outside the project by default under `%LOCALAPPDATA%/UndoWeave/workspaces/` on Windows, or `~/.local/state/UndoWeave/workspaces/` elsewhere. `workspace_status` reports the exact directory. A supplied state directory must be outside the project.
 
 POSIX state directories/files require owner-only permissions. On Windows the state directory inherits its parent's ACL; Python mode bits do not configure an owner-only NTFS ACL. Choose a private user-owned location and review the ACL for your environment. Snapshots are not encrypted, automatically expired or securely erased. Preview tokens expire after five minutes, but undo history persists until you deliberately archive or remove the journal.
 

@@ -15,15 +15,17 @@ import unicodedata
 import uuid
 
 from . import __version__
-from .merge import inverse_merge, MergeConflict
+from .merge import inverse_merge, MergeConflict, physical_lines
 
 MAX_BYTES = 1_048_576
 MAX_LINES = 4000
 MAX_STATE_BYTES = 128 * MAX_BYTES
 PLAN_SECONDS = 300
+SCHEMA_VERSION = "2"
+WORKSPACE_MARKER = ".undoweave-id"
 MISSING = "missing"
 PROTECTED_DIRS = {".git", ".hg", ".svn", ".undoweave", ".ssh", ".aws", ".azure", ".gnupg", ".venv", "node_modules"}
-PROTECTED_NAMES = {"credentials", "credentials.json", "secrets.json", "tokens.json", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", ".git-credentials", ".pgpass", ".netrc", ".npmrc", ".pypirc"}
+PROTECTED_NAMES = {WORKSPACE_MARKER, "credentials", "credentials.json", "secrets.json", "tokens.json", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", ".git-credentials", ".pgpass", ".netrc", ".npmrc", ".pypirc"}
 DEVICE = re.compile(r"^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[0-9¹²³]|LPT[0-9¹²³])(?:\.|$)", re.I)
 
 
@@ -40,14 +42,40 @@ class _UnchangedWrite(Exception):
 
 
 def _unsafe_metadata(text: str) -> bool:
-    return any(unicodedata.category(character) in {"Cc", "Cf"} for character in text)
+    return any(unicodedata.category(character) in {"Cc", "Cf", "Zl", "Zp"} for character in text)
 
 
 def _display_diff(text: str) -> str:
     # Visible escapes prevent terminal/control/bidi spoofing in a reviewed diff.
-    return "".join(character if character in "\n\t" or unicodedata.category(character) not in {"Cc", "Cf"}
+    return "".join(character if character in "\n\t" or unicodedata.category(character) not in {"Cc", "Cf", "Zl", "Zp"}
                    else ("\\u" + format(ord(character), "04x") if ord(character) <= 0xffff
                          else "\\U" + format(ord(character), "08x")) for character in text)
+
+
+def _review_diff(current: str | None, result: str | None, path: str) -> str:
+    def ending(line):
+        return "CRLF" if line.endswith("\r\n") else "CR" if line.endswith("\r") else "LF" if line.endswith("\n") else "NONE"
+    before_lines, after_lines = physical_lines(current or ""), physical_lines(result or "")
+    styles = [{ending(line) for line in lines} - {"NONE"} for lines in (before_lines, after_lines)]
+    show_endings = len(styles[0] | styles[1]) > 1
+    def display(lines):
+        shown = []
+        for line in lines:
+            style = ending(line)
+            body = line[:-2] if style == "CRLF" else line[:-1] if style != "NONE" else line
+            shown.append(body + (f" [{style}]" if show_endings else "") + ("\n" if style != "NONE" else ""))
+        return shown
+    lines = unified_diff(display(before_lines), display(after_lines), fromfile="current/" + path, tofile="undo/" + path)
+    # difflib does not add Git's EOF marker, and otherwise joins -old+new into
+    # one misleading line when either side has no final newline.
+    return "".join(line if line.endswith("\n") else line + "\n\\ No newline at end of file\n" for line in lines)
+
+
+def _line_ending_profile(text):
+    if text is None:
+        return None
+    lines = physical_lines(text)
+    return {"crlf": sum(line.endswith("\r\n") for line in lines), "lf": sum(line.endswith("\n") and not line.endswith("\r\n") for line in lines), "cr": sum(line.endswith("\r") for line in lines), "final_newline": bool(text) and text.endswith(("\r", "\n"))}
 
 
 def _hash(content: str | None) -> str:
@@ -59,11 +87,13 @@ def _validate_content(content: str | None) -> None:
         return
     if not isinstance(content, str):
         raise UndoWeaveError("invalid_content", "Content must be UTF-8 text or null.")
+    if len(content) > MAX_BYTES:
+        raise UndoWeaveError("content_limit", "Content exceeds the 1 MiB UTF-8 text limit.")
     try:
         encoded = content.encode("utf-8")
     except UnicodeError:
         raise UndoWeaveError("invalid_content", "Content must be valid UTF-8 text.") from None
-    if b"\0" in encoded or len(encoded) > MAX_BYTES or len(content.splitlines()) > MAX_LINES:
+    if b"\0" in encoded or len(encoded) > MAX_BYTES or len(physical_lines(content)) > MAX_LINES:
         raise UndoWeaveError("content_limit", "Binary text or content beyond the 1 MiB / 4000-line limit is unsupported.")
 
 
@@ -104,12 +134,15 @@ def _sync_dir(path: Path) -> None:
 
 
 class Engine:
-    def __init__(self, root: Path | str, state_dir: Path | str | None = None):
+    def __init__(self, root: Path | str, state_dir: Path | str | None = None, *, _adopt_legacy: bool = False):
         supplied = Path(root).absolute()
         _check_chain(supplied)
         if not supplied.is_dir():
             raise UndoWeaveError("invalid_root", "Choose an existing project directory.")
         self.root = supplied.resolve()
+        self._root_identity = self._directory_identity()
+        self._workspace_id = None
+        self._initializing = True
         if state_dir is None:
             base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "state"))) / "UndoWeave" / "workspaces"
             state_dir = base / sha256(str(self.root).encode()).hexdigest()
@@ -132,20 +165,124 @@ class Engine:
                         status TEXT NOT NULL, created REAL NOT NULL, undoes TEXT, undone_by TEXT);
                     CREATE TABLE IF NOT EXISTS plans (
                         token TEXT PRIMARY KEY, edit_id TEXT NOT NULL, current_hash TEXT NOT NULL,
-                        result_text TEXT, created REAL NOT NULL, head INTEGER NOT NULL,
+                        result_text TEXT, result_hash TEXT, created REAL NOT NULL, head INTEGER NOT NULL,
                         used INTEGER NOT NULL DEFAULT 0);
                 """)
-                bound = db.execute("SELECT value FROM metadata WHERE key='root'").fetchone()
-                if bound is not None and bound[0] != str(self.root):
-                    raise UndoWeaveError("wrong_workspace", "This journal belongs to another project.")
-                db.execute("INSERT OR IGNORE INTO metadata VALUES ('root', ?)", (str(self.root),))
-                db.execute("INSERT OR IGNORE INTO metadata VALUES ('schema', '1')")
-                if db.execute("SELECT value FROM metadata WHERE key='schema'").fetchone()[0] != "1":
-                    raise UndoWeaveError("invalid_state", "This journal schema is unsupported.")
+                self._bind_journal(db, adopt_legacy=_adopt_legacy)
                 db.commit()
-                self._recover(db)
+                self._initializing = False
+                try:
+                    self._recover(db)
+                except UndoWeaveError as error:
+                    if error.code != "recovery_required":
+                        raise
+                    self._recovery_problem = str(error)
         except sqlite3.Error:
             raise UndoWeaveError("invalid_state", "The journal is unreadable; no project file was changed.") from None
+
+    def _directory_identity(self) -> str:
+        _check_chain(self.root)
+        info = self.root.stat()
+        if not stat.S_ISDIR(info.st_mode) or not info.st_ino:
+            raise UndoWeaveError("unsupported_filesystem", "The project needs a stable directory identity.")
+        # The nonce marker handles inode reuse. Keep this identity independent
+        # of Python's platform/version-specific birthtime attribute availability.
+        # CPython 3.12 expanded Windows volume serials to 64 bits. Normalize
+        # to the serial reported by all supported versions; retain the nonce
+        # and full inode checks as independent accidental-replacement guards.
+        device = info.st_dev & 0xffffffff if os.name == "nt" else info.st_dev
+        return f"{device}:{info.st_ino}"
+
+    def _marker(self, *, create=False) -> str:
+        path = self.root / WORKSPACE_MARKER
+        if create and not path.exists():
+            if self._directory_identity() != self._root_identity:
+                raise UndoWeaveError("workspace_replaced", "The project directory was replaced. No edit was applied.")
+            try:
+                fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0), 0o600)
+            except FileExistsError:
+                pass  # Another journal may have initialized this project concurrently.
+            else:
+                try:
+                    os.write(fd, (uuid.uuid4().hex + "\n").encode("ascii"))
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+                _sync_dir(self.root)
+        try:
+            # Another fresh journal can see O_EXCL's empty file before the
+            # creator writes/fsyncs its nonce. Wait only during initialization,
+            # and only for an ordinary empty marker; never replace or repair it.
+            deadline = time.monotonic() + (2 if create else 0)
+            while True:
+                info = path.lstat()
+                if _linked(info) or not _regular(info) or info.st_size != 0 or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.025)
+            if _linked(info) or not _regular(info) or info.st_size != 33:
+                raise UndoWeaveError("invalid_workspace_marker", "The workspace marker is invalid. Preserve it for investigation.")
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
+            try:
+                opened = os.fstat(fd)
+                if not _regular(opened) or (info.st_dev, info.st_ino) != (opened.st_dev, opened.st_ino):
+                    raise UndoWeaveError("invalid_workspace_marker", "The workspace marker changed during validation.")
+                data = os.read(fd, 34)
+            finally:
+                os.close(fd)
+        except FileNotFoundError:
+            raise UndoWeaveError("workspace_replaced", "The workspace identity marker is missing. No edit was applied.") from None
+        if not re.fullmatch(rb"[a-f0-9]{32}\n", data):
+            raise UndoWeaveError("invalid_workspace_marker", "The workspace marker is invalid. Preserve it for investigation.")
+        return data[:32].decode("ascii")
+
+    def _assert_root(self):
+        if self._directory_identity() != self._root_identity:
+            raise UndoWeaveError("workspace_replaced", "The project directory was replaced. Use a separate journal for the new project.")
+        if self._workspace_id is not None and self._marker() != self._workspace_id:
+            raise UndoWeaveError("workspace_replaced", "The project identity marker changed. No edit was applied.")
+
+    def _bind_journal(self, db, *, adopt_legacy=False):
+        values = dict(db.execute("SELECT key,value FROM metadata"))
+        if values.get("root") not in (None, str(self.root)):
+            raise UndoWeaveError("wrong_workspace", "This journal belongs to another project.")
+        schema = values.get("schema")
+        if schema not in (None, "1", SCHEMA_VERSION):
+            raise UndoWeaveError("invalid_state", "This journal schema is unsupported.")
+        if schema == SCHEMA_VERSION:
+            if values.get("root_identity") != self._root_identity:
+                raise UndoWeaveError("workspace_replaced", "This journal belongs to a different directory instance.")
+            self._workspace_id = values.get("workspace_id")
+            if not self._workspace_id or self._marker() != self._workspace_id:
+                raise UndoWeaveError("workspace_replaced", "The project identity does not match this journal.")
+        else:
+            has_history = db.execute("SELECT EXISTS(SELECT 1 FROM changes)").fetchone()[0]
+            if has_history and not adopt_legacy:
+                raise UndoWeaveError("legacy_journal", "This v0.1 journal has no workspace identity. Review the migration guide and explicitly adopt it locally, or select a fresh state directory.")
+            if adopt_legacy and db.execute("SELECT COUNT(*) FROM changes WHERE status='pending'").fetchone()[0]:
+                raise UndoWeaveError("recovery_required", "Resolve interrupted legacy operations before adopting this journal.")
+            self._workspace_id = self._marker(create=True)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(plans)")}
+            if "result_hash" not in columns:
+                db.execute("ALTER TABLE plans ADD COLUMN result_hash TEXT")
+            db.execute("DELETE FROM plans")  # Previews are ephemeral; old tokens cannot bind a new identity.
+            db.executemany("INSERT OR REPLACE INTO metadata VALUES (?,?)", [("root", str(self.root)), ("schema", SCHEMA_VERSION), ("root_identity", self._root_identity), ("workspace_id", self._workspace_id)])
+        db.execute("CREATE INDEX IF NOT EXISTS changes_path_head ON changes(path_key,sequence)")
+        db.execute("CREATE INDEX IF NOT EXISTS changes_status ON changes(status)")
+        db.execute("CREATE INDEX IF NOT EXISTS plans_expiry ON plans(created)")
+
+    def _verify_journal(self, db):
+        values = dict(db.execute("SELECT key,value FROM metadata"))
+        if (values.get("root") != str(self.root) or values.get("root_identity") != self._root_identity
+                or values.get("workspace_id") != self._workspace_id or values.get("schema") != SCHEMA_VERSION):
+            raise UndoWeaveError("wrong_workspace", "The journal binding changed. No project file was changed.")
+
+    @classmethod
+    def adopt_legacy(cls, root, state_dir=None, *, confirm_root: str):
+        resolved = str(Path(root).resolve())
+        if confirm_root != resolved:
+            raise UndoWeaveError("confirmation_required", "Confirm the exact resolved project root after reviewing the legacy journal.")
+        engine = cls(root, state_dir, _adopt_legacy=True)
+        return {"status": "adopted", "root": str(engine.root), "state_dir": str(engine.state_dir), "schema": SCHEMA_VERSION}
 
     def _check_state_location(self):
         # Resolve spelling aliases and compare directory identities as well, so
@@ -164,8 +301,11 @@ class Engine:
     @contextmanager
     def _connection(self):
         # Span database commits AND filesystem replacement with a process lock.
+        self._assert_root()
         with self._journal_lock():
             with self._open_connection() as db:
+                if not self._initializing:
+                    self._verify_journal(db)
                 yield db
 
     @contextmanager
@@ -243,6 +383,7 @@ class Engine:
             db.close()
 
     def _path(self, path: str) -> Path:
+        self._assert_root()
         if not isinstance(path, str) or not path or len(path) > 1024 or _unsafe_metadata(path):
             raise UndoWeaveError("unsafe_path", "Use a bounded project-relative path.")
         if any(c in path for c in '\\:<>"|?*\x7f') or path.startswith("/"):
@@ -312,10 +453,24 @@ class Engine:
         _validate_content(content)
         return content, stat.S_IMODE(initial.st_mode)
 
-    def read(self, path: str) -> dict:
+    def read(self, path: str, start_line: int | None = None, end_line: int | None = None, metadata_only: bool = False) -> dict:
         path = self._canonical(path)
         content, _ = self._read(path)
-        return {"path": path, "exists": content is not None, "content": content, "sha256": _hash(content)}
+        if type(metadata_only) is not bool:
+            raise UndoWeaveError("invalid_arguments", "metadata_only must be a boolean.")
+        ranged = start_line is not None or end_line is not None
+        if metadata_only and ranged:
+            raise UndoWeaveError("invalid_arguments", "Choose metadata_only or a line range, not both.")
+        lines = physical_lines(content or "")
+        result = {"path": path, "exists": content is not None, "content": content, "sha256": _hash(content), "byte_length": len((content or "").encode()), "line_count": len(lines), "content_scope": "full"}
+        if metadata_only:
+            result.update(content=None, content_scope="metadata")
+        elif ranged:
+            first, last = 1 if start_line is None else start_line, len(lines) if end_line is None else end_line
+            if type(first) is not int or type(last) is not int or not 1 <= first <= last <= len(lines):
+                raise UndoWeaveError("invalid_range", "Use an inclusive 1-based line range within this nonempty file.")
+            result.update(content="".join(lines[first - 1:last]), content_scope="lines", start_line=first, end_line=last)
+        return result
 
     @staticmethod
     def _row_check(row) -> None:
@@ -331,9 +486,19 @@ class Engine:
 
     def _recover(self, db) -> None:
         db.execute("BEGIN IMMEDIATE")
+        self._gc_plans(db)
         for row in db.execute("SELECT * FROM changes WHERE status='pending'").fetchall():
             self._row_check(row)
-            current, _ = self._read(row["path"])
+            try:
+                current, _ = self._read(row["path"])
+            except UndoWeaveError as error:
+                if error.code in {"binary_file", "content_limit", "unsafe_file"}:
+                    raise UndoWeaveError("recovery_required", f"Interrupted operation {row['id']} has an unsupported target. Preserve the journal and file for manual recovery.") from None
+                if error.code != "missing_parent":
+                    raise
+                current = None
+            except OSError:
+                raise UndoWeaveError("recovery_required", f"Interrupted operation {row['id']} cannot be inspected. Preserve the journal and file for manual recovery.") from None
             current_hash = _hash(current)
             if current_hash == row["after_hash"]:
                 db.execute("UPDATE changes SET status='applied' WHERE id=?", (row["id"],))
@@ -408,12 +573,22 @@ class Engine:
                     pass
 
     def _write_intent(self, db, path, before, after, actor, label, undoes=None) -> dict:
-        if self.db_path.stat().st_size + len((before or "").encode()) + len((after or "").encode()) > MAX_STATE_BYTES:
+        self._gc_plans(db)
+        payload = len((before or "").encode()) + len((after or "").encode())
+        target_payload = 0
+        if undoes:
+            target = db.execute("SELECT length(CAST(before_text AS BLOB)),length(CAST(after_text AS BLOB)) FROM changes WHERE id=?", (undoes,)).fetchone()
+            target_payload = sum(size or 0 for size in target)
+        # SQLite may temporarily rewrite large overflow payloads when updating
+        # status and the original operation's undo link after the file write.
+        # Reserve that peak allocation BEFORE crossing the filesystem boundary.
+        if self._used_storage(db) + 2 * payload + target_payload + 65536 > MAX_STATE_BYTES:
             raise UndoWeaveError("storage_limit", "The journal reached its storage limit; keep a backup before archiving it.")
         change_id = uuid.uuid4().hex
         db.execute("INSERT INTO changes (id,path,path_key,actor,label,before_text,after_text,before_hash,after_hash,status,created,undoes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                    (change_id, path, self._path_key(path), actor, label, before, after, _hash(before), _hash(after), "pending", time.time(), undoes))
         db.commit()  # Durable intent precedes changing project bytes.
+        self._write_phase = "unknown"
         try:
             self._replace(path, after, _hash(before))
         except _UnchangedWrite as failure:
@@ -423,7 +598,17 @@ class Engine:
             if isinstance(failure.original, UndoWeaveError):
                 raise failure.original from None
             raise UndoWeaveError("write_refused", "The write failed before any project mutation was attempted.") from None
-        except Exception:
+        except Exception as error:
+            if isinstance(error, OSError) and self._write_phase == "mutating":
+                try:
+                    observed = self._read(path)[0]
+                except (OSError, UndoWeaveError):
+                    observed = object()
+                if isinstance(observed, (str, type(None))) and _hash(observed) == _hash(before):
+                    db.execute("BEGIN IMMEDIATE")
+                    db.execute("UPDATE changes SET status='aborted' WHERE id=?", (change_id,))
+                    db.commit()
+                    raise UndoWeaveError("write_refused", "The filesystem refused the replacement and unchanged bytes were verified. Close conflicting handles or check permissions before retrying.") from None
             # Keep pending: startup can distinguish before, after, or unknown.
             raise
         db.execute("BEGIN IMMEDIATE")
@@ -451,6 +636,38 @@ class Engine:
             if before == content:
                 raise UndoWeaveError("no_change", "This edit does not change the file.")
             return self._write_intent(db, path, before, content, actor, label)
+
+    def replace_text(self, path: str, old_text: str, new_text: str, actor: str, expected_hash: str, label: str = "") -> dict:
+        if not isinstance(old_text, str) or not old_text or not isinstance(new_text, str):
+            raise UndoWeaveError("invalid_match", "Use nonempty old_text and a text replacement.")
+        _validate_content(old_text)
+        _validate_content(new_text)
+        snapshot = self.read(path)
+        if snapshot["sha256"] != expected_hash:
+            raise UndoWeaveError("stale_file", "Expected hash is stale; no file was changed.")
+        content = snapshot["content"]
+        if content is None:
+            raise UndoWeaveError("missing_file", "Exact replacement requires an existing file.")
+        position = content.find(old_text)
+        if position < 0:
+            normalized = lambda value: value.replace("\r\n", "\n").replace("\r", "\n")
+            hint = " Line endings differ; copy exact old_text from read_file." if normalized(old_text) in normalized(content) else ""
+            raise UndoWeaveError("match_not_found", "old_text was not found; no file was changed." + hint)
+        if content.find(old_text, position + 1) >= 0:
+            raise UndoWeaveError("ambiguous_match", "old_text must match exactly once, including overlapping occurrences.")
+        replacement = content[:position] + new_text + content[position + len(old_text):]
+        # edit rechecks both journal binding and the entire file hash under lock.
+        return self.edit(path, replacement, actor, expected_hash, label)
+
+    @staticmethod
+    def _used_storage(db):
+        pages = db.execute("PRAGMA page_count").fetchone()[0]
+        free = db.execute("PRAGMA freelist_count").fetchone()[0]
+        return (pages - free) * db.execute("PRAGMA page_size").fetchone()[0]
+
+    @staticmethod
+    def _gc_plans(db):
+        db.execute("DELETE FROM plans WHERE used<>0 OR created < ?", (time.time() - PLAN_SECONDS,))
 
     def history(self, limit: int = 50) -> list[dict]:
         if type(limit) is not int or not 1 <= limit <= 200:
@@ -481,20 +698,20 @@ class Engine:
             except MergeConflict as error:
                 return {"status": "conflict", "path": row["path"], "reason": str(error)}
             _validate_content(result)
-            raw_diff = "".join(unified_diff((current or "").splitlines(keepends=True), (result or "").splitlines(keepends=True), fromfile="current/" + row["path"], tofile="undo/" + row["path"]))
+            raw_diff = _review_diff(current, result, row["path"])
             diff = _display_diff(raw_diff)
             if len(diff) > 16000:
                 return {"status": "conflict", "path": row["path"], "reason": "The diff exceeds the 16000-character review limit. Review and recover this change manually."}
-            if self.db_path.stat().st_size + len((result or "").encode()) + 8192 > MAX_STATE_BYTES:
+            self._gc_plans(db)
+            if self._used_storage(db) + 8192 > MAX_STATE_BYTES:
                 raise UndoWeaveError("storage_limit", "The journal reached its preview storage limit.")
             token = uuid.uuid4().hex + uuid.uuid4().hex
-            db.execute("DELETE FROM plans WHERE created < ?", (time.time() - PLAN_SECONDS,))
             if db.execute("SELECT COUNT(*) FROM plans").fetchone()[0] >= 200:
                 raise UndoWeaveError("plan_limit", "Too many live previews; wait five minutes before creating more.")
             head = db.execute("SELECT MAX(sequence) FROM changes WHERE path_key=?", (row["path_key"],)).fetchone()[0]
-            db.execute("INSERT INTO plans (token,edit_id,current_hash,result_text,created,head) VALUES (?,?,?,?,?,?)", (token, edit_id, _hash(current), result, time.time(), head))
+            db.execute("INSERT INTO plans (token,edit_id,current_hash,result_text,result_hash,created,head) VALUES (?,?,?,?,?,?,?)", (token, edit_id, _hash(current), None, _hash(result), time.time(), head))
             db.commit()
-            return {"status": "ready", "path": row["path"], "reason": "Review this inverse before applying it. Control and direction characters are displayed as escapes.", "diff": diff, "display_escaped": diff != raw_diff, "diff_truncated": False, "token": token, "expires_in_seconds": PLAN_SECONDS, "current_hash": _hash(current), "result_hash": _hash(result)}
+            return {"status": "ready", "path": row["path"], "operation": "delete" if result is None else "create" if current is None else "edit", "reason": "Review this inverse before applying it. Display newlines are normalized; exact source endings are preserved and described separately. Control and direction characters are displayed as escapes.", "diff": diff, "line_endings": {"current": _line_ending_profile(current), "result": _line_ending_profile(result)}, "display_escaped": diff != raw_diff, "diff_truncated": False, "token": token, "expires_in_seconds": PLAN_SECONDS, "current_hash": _hash(current), "result_hash": _hash(result)}
 
     def apply_undo(self, token: str) -> dict:
         if not isinstance(token, str) or not re.fullmatch(r"[a-f0-9]{64}", token):
@@ -525,11 +742,12 @@ class Engine:
                     raise UndoWeaveError("stale_plan", "The inverse can no longer be applied safely.") from None
             else:
                 raise UndoWeaveError("stale_plan", "The inverse can no longer be applied safely.")
-            if result != plan["result_text"]:
+            if plan["result_text"] is not None or _hash(result) != plan["result_hash"]:
                 raise UndoWeaveError("invalid_state", "Preview content failed its integrity check.")
             db.execute("UPDATE plans SET used=1 WHERE token=?", (token,))
             return self._write_intent(db, row["path"], current, result, "undo", "Undo recorded edit", undoes=row["id"])
 
     def status(self) -> dict:
         with self._connection() as db:
-            return {"version": __version__, "root": str(self.root), "state_dir": str(self.state_dir), "recorded_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='applied'").fetchone()[0], "pending_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='pending'").fetchone()[0], "limits": {"bytes_per_file": MAX_BYTES, "lines_per_file": MAX_LINES, "history_limit": 200, "preview_seconds": PLAN_SECONDS}, "tracking": "Only edits made through UndoWeave are attributed; actor labels are self-reported."}
+            pending = db.execute("SELECT path FROM changes WHERE status='pending' LIMIT 20").fetchall()
+            return {"version": __version__, "root": str(self.root), "state_dir": str(self.state_dir), "recorded_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='applied'").fetchone()[0], "pending_count": db.execute("SELECT COUNT(*) FROM changes WHERE status='pending'").fetchone()[0], "pending_paths": [row[0] for row in pending], "recovery_notice": "Pending operations block mutations until safely classified; status and history remain available." if pending else None, "limits": {"bytes_per_file": MAX_BYTES, "lines_per_file": MAX_LINES, "history_limit": 200, "preview_seconds": PLAN_SECONDS}, "tracking": "Only edits made through UndoWeave are attributed; actor labels are self-reported."}

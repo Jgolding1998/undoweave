@@ -22,7 +22,7 @@ async def check(root):
     params = StdioServerParameters(command=sys.executable, args=["-I", "-m", "undoweave", "--root", str(project), "--state-dir", str(root / "state"), "serve"])
     async with Client(params) as client:
         tools = (await client.list_tools()).tools
-        assert {tool.name for tool in tools} == {"read_file", "write_file", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
+        assert {tool.name for tool in tools} == {"read_file", "write_file", "replace_text", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
         read = (await client.call_tool("read_file", {"path": "sample.txt"})).structured_content
         changed = await client.call_tool("write_file", {"path": "sample.txt", "expected_hash": read["sha256"], "actor": "smoke-agent", "content": read["content"].replace("agent=old", "agent=new")})
         assert not changed.is_error

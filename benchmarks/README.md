@@ -4,6 +4,16 @@ These eight deliberately small, public fixtures compare a **selective-undo
 objective**. They do not rank complete products. Safe refusals are distinguished
 from successful merges and checkpoint restores.
 
+The published rerun uses UndoWeave 0.2.0 and the same unchanged eight fixtures:
+five selective undos completed and three expected refusals left project files
+unchanged. A safe refusal meets a refusal fixture's expectation; it is not a
+successful selective undo. Both same-file success fixtures have an unchanged
+unique body line between the agent's title edit and the later footer edit.
+The stricter stable-anchor algorithm still accepts these examples, but may
+refuse adjacent edits without such a separator or ambiguous repeated lines.
+These eight fixtures do not establish a general acceptance or accuracy rate.
+See [the observed behavior and limits](../docs/COMPARISON.md).
+
 Requirements: Python 3.11+, an installed UndoWeave checkout, Git, and Node 24+.
 No model, agent subscription, npm packages, or paid API is used. The comparator
 creates temporary projects, disables commit hooks and signing there, and removes
@@ -60,5 +70,8 @@ restores only inside their generated disposable projects. Do not point either
 upstream implementation at your working project for this benchmark.
 
 The published [results](results.json) were produced on Windows with Python
-3.13.11, Node 24.13.0 and Git 2.52.0. No latency or complete-product ranking is
-claimed. Re-run to see your own environment's result.
+3.13.11, Node 24.13.0 and Git 2.52.0. They include SHA-256 hashes of the measured
+UndoWeave engine and merge files. The harness exits unsuccessfully if an
+expected selective undo is refused, even when the refusal leaves files safe;
+expected refusal cases are checked separately. No latency or complete-product
+ranking is claimed. Re-run to see your own environment's result.

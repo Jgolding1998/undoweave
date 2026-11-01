@@ -1,4 +1,4 @@
-> **v0.1 undo safety notice:** a confirmed repeated-line alignment bug can restore the wrong text. Avoid using v0.1 undo on important work. A tested conservative fix is being prepared; preserve independent backups.
+> **Upgrade from v0.1:** it has a confirmed repeated-line alignment bug that can restore the wrong text. Version 0.2 includes the conservative fix and regression tests. Stop old clients and review [migration instructions](docs/MIGRATION.md) before reusing history. Preserve independent backups.
 
 <p align="center"><img src="docs/assets/banner.svg" alt="UndoWeave: undo the agent's edit, keep the rest" width="100%"></p>
 
@@ -12,12 +12,14 @@ Agent A changes one line. You change another. Agent B changes a third. UndoWeave
 
 **Early release:** edits must go through UndoWeave's tools. It does not intercept your agent's shell or built-in editor, identify the author of outside changes, or replace Git backups. Actor names are caller-supplied labels.
 
+First initialization creates a small, source-free `.undoweave-id` marker in the chosen project. Keep it and exclude it from version control. Existing v0.1 journals need [explicit reviewed adoption](docs/MIGRATION.md); the MCP never guesses their identity.
+
 ## Try it
 
 Python 3.11+ and Git are required for this install command. No AI subscription, API key, or paid service is needed for the demo.
 
 ```sh
-python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.1.0"
+python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.2.0"
 undoweave demo
 ```
 
@@ -52,17 +54,44 @@ The root is fixed at startup. Tools cannot choose another project or run command
 | --- | --- |
 | `read_file` | Read selected UTF-8 text and its expected hash |
 | `write_file` | Record one whole-file replacement, creation, or explicit deletion |
+| `replace_text` | Record one exact unique text replacement using the full-file hash |
 | `list_changes` | List source-free operation summaries |
 | `preview_undo` | Review an inverse and obtain a short-lived token |
 | `apply_undo` | Apply that reviewed inverse if the file and recorded history are still current |
 | `workspace_status` | Show configuration, limits, and journal counts |
 
+For a small change, `read_file` can return metadata or selected lines and
+`replace_text` can send only the exact old/new text. The hash always covers the
+whole file; this reduces MCP payloads, not the local file hashing work. Ambiguous
+or overlapping duplicate matches are refused.
+
 ## What happens when changes overlap?
 
 UndoWeave refuses. It does not insert conflict markers, guess which copy of repeated text you intended, or offer a force switch. A refusal can also mean the change exceeds its review or complexity limits. A fresh preview is required if the selected file changes after review.
 
+Separate changes need unchanged lines that occur exactly once in each snapshot
+to separate them. Adjacent edits, repeated braces and blank lines can therefore
+require manual review. This deliberate refusal replaces v0.1's alignment,
+which could accept the wrong repeated-text undo; use the current release.
+
 Each successful undo is recorded as another edit. Previewing and undoing that inverse provides redo. Recovery is one file at a time; this release has no atomic multi-file transaction or automatic undo-all-by-agent.
 It tracks text content, not complete filesystem metadata. Recreated files need their permissions reviewed; custom ACLs and extended attributes are not restored.
+
+## See your change timeline
+
+```sh
+python -I -m undoweave --root /absolute/project history --format html > timeline.html
+```
+
+Open the resulting file in your browser. The standalone, read-only timeline
+shows the newest 50 recorded changes, with labels, actors, paths, times and undo
+relationships. It contains no source snapshots, diffs, hashes or preview tokens;
+paths and labels can still be private. Review before sharing. Use `--limit 200`
+for a larger snapshot. It does not scan the project or apply undos.
+
+The MCP also exposes `undoweave://timeline` as an HTML resource. Client rendering
+support varies; the CLI export works independently. Try the
+[synthetic timeline example](docs/examples/timeline.html).
 
 ## Privacy and safety
 
@@ -71,7 +100,7 @@ It tracks text content, not complete filesystem metadata. Recreated files need t
 - `read_file` and preview diffs disclose selected source to your MCP client. Your client's normal data handling applies.
 - Credential-like paths, Git metadata, binary files, symlinks, reparse points and hardlinks are refused. These are guardrails, not a complete secret detector or an OS sandbox.
 - File hashes, expiring one-use previews, bounded comparisons, a process lock and a durable intent journal reduce accidental overwrite risk. Outside editors are not locked; a residual validation-to-write race remains.
-- Maximum 1 MiB and 4000 lines per file, 16000 characters per preview diff, five-minute preview lifetime, and 128 MiB journal. Repeated text can hit a stricter comparison budget. It never scans the whole workspace to record one edit.
+- Maximum 1 MiB and 4000 physical lines per file, 16000 characters per preview diff, five-minute preview lifetime, and 128 MiB journal. Repeated text can prevent a safe alignment. It never scans the whole workspace to record one edit.
 
 Read the [threat model and recovery notes](SECURITY.md) before using it on important work.
 
@@ -90,3 +119,5 @@ Tests include real MCP subprocess calls, randomized merge cases, crash recovery,
 Start in a disposable copy of a project. Try two agents and your own editor, preview an undo, and check every resulting diff. Tell us where the tool refused a change you expected to work, or where setup was confusing. Share a small synthetic reproduction, never private source or journal files.
 
 [Contributing](CONTRIBUTING.md) · [Research and inspiration](docs/RESEARCH.md) · [MIT license](LICENSE)
+
+[Lessons from Cline/Aider issues and PRs](docs/UPSTREAM_LESSONS.md) · [Surface Map cross-check](docs/SURFACE_MAP_CROSSCHECK.md) · [Performance measurements](docs/PERFORMANCE.md)
