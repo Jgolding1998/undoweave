@@ -19,7 +19,7 @@ python3 -m venv ~/.undoweave-venv
 Windows (PowerShell):
 
 ```powershell
-py -3.11 -m venv $HOME\.undoweave-venv
+py -3 -m venv $HOME\.undoweave-venv
 & $HOME\.undoweave-venv\Scripts\python.exe -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave@v0.1.0"
 ```
 
