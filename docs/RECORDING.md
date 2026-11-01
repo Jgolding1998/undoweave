@@ -18,6 +18,11 @@ source. The output labels the author unknown and test evidence not captured.
 
 ## Record a chosen project
 
+For a suggested project and code paths, run `undoweave setup --client claude`
+or `--client codex` from the project. It prints a plan and connection settings;
+recording begins only after the configured server starts. The optional companion
+skill helps an authorized agent handle that setup. [Installation](INSTALL.md).
+
 Print an MCP configuration with recording enabled for your chosen paths:
 
 ```sh

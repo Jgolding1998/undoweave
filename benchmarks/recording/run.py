@@ -1,6 +1,6 @@
 """Stdlib recording development benchmark; only generated synthetic projects.
 
-Run from a normal clone with undoweave==0.3.0 installed in this interpreter.
+Run from a normal clone with undoweave==0.4.0 installed in this interpreter.
 No source import override, model call, network request, project execution or
 automatic filesystem cleanup is used. Raw results stay under ignored work/.
 """

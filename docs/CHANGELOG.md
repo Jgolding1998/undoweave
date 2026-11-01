@@ -1,5 +1,17 @@
 # Release notes
 
+## 0.4.0
+
+- Add a read-only `setup` helper that identifies the current project, suggests
+  bounded code paths and prints the pinned connection configuration. It does not
+  start recording, create a journal or change client settings.
+- Keep nested projects local rather than broadening to an outer monorepo;
+  refuse home/drive/general-file roots and unsupported selection policies.
+- Give setup connections stable project-specific names, with optional `--name`
+  for setup and explicit config. Preserve literal leading-hyphen watch filenames.
+- Add a companion agent skill for authorized installation/setup and evidence
+  inspection; installing the Python package does not install that skill.
+
 ## 0.3.0
 
 - Add opt-in recording for explicit project paths, including saves made outside

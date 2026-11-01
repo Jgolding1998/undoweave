@@ -88,7 +88,8 @@ class CliWithoutCoreTests(unittest.TestCase):
         with mock.patch.dict(sys.modules, blocked), contextlib.redirect_stderr(stderr):
             code = cli.main(["--root", str(Path(tempfile.gettempdir()).resolve()), "serve"])
         self.assertEqual(code, 3)
-        self.assertIn('pip install ".[mcp]"', stderr.getvalue())
+        self.assertIn('python -I -m pip install "undoweave[mcp] @ git+', stderr.getvalue())
+        self.assertNotIn('pip install ".[mcp]"', stderr.getvalue())
         self.assertIn("mcp==2.3.0", stderr.getvalue())
         self.assertNotIn("Traceback", stderr.getvalue())
 

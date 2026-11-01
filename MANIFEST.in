@@ -3,3 +3,4 @@ recursive-include docs *.md *.svg *.html *.png *.json
 recursive-include tests *.py
 recursive-include benchmarks *.py *.json *.md *.mjs
 recursive-include scripts *.py
+recursive-include skills *.md *.yaml

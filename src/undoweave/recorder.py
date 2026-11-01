@@ -105,7 +105,8 @@ class Recorder:
             lease.__exit__(None, None, None)
             raise
 
-    def _ignored(self, path, rules):
+    @staticmethod
+    def _ignored(path, rules):
         for base, pattern in rules:
             if base and not path.startswith(base + '/'):
                 continue
