@@ -200,5 +200,98 @@ class PresentationTests(unittest.TestCase):
         self.assertNotIn("can be undone", html)
 
 
+    # ---- observed rows: sampled outside-tool evidence (read-only, author unknown) ----
+    def observed(self, **overrides):
+        value = row(id="c" * 32, path="src/app.py", actor="unknown", label="Observed net change between samples",
+                    status="observed", created=1700000060.0, source="observed", attribution="unknown",
+                    observation={"session_id": "d" * 32, "observed_from": 1700000050.0, "observed_to": 1700000060.0,
+                                 "related_change_ids": ["a" * 32]})
+        value.update(overrides)
+        return value
+
+    def card(self, html, change_id="c" * 32):
+        start = html.index('id="change-' + change_id + '"')
+        return html[start:html.index("</li>", start)]
+
+    def test_observed_rows_are_distinct_unattributed_read_only_evidence(self):
+        html = render_timeline([self.observed(), row()], {"recorded_count": 1, "pending_count": 0})
+        card = self.card(html)
+        for text in ("is-observed", "node observed", ">Observed<", "Read-only evidence", "Author unknown",
+                     "not one action or an exact time", "cannot be undone through UndoWeave",
+                     "Outside-tool recording (file sampling)", "<dd>Unknown</dd>"):
+            self.assertIn(text, html if text == "is-observed" else card)
+        for text in ("self-reported", "by unknown", "Applied", "Undo recorded", "Reverses", "Reversed by"):
+            self.assertNotIn(text, card)
+        self.assertIn("Observed outside tools (author unknown)", html)
+        self.assertIn("never undo targets", html)
+        self.assertIn("Actor labels are self-reported", html)  # tool edits keep their wording
+
+    def test_observed_window_is_shown_as_an_interval_never_an_exact_action_time(self):
+        card = self.card(render_timeline([self.observed()]))
+        self.assertIn("Changed at some point between the reported scan bounds", card)
+        self.assertIn("conservative limits from the recorder's scans, not the time the file was edited or read", card)
+        for claim in ("when the two samples were taken", "sampled</span>", "overlap in time", "same window", "exact time of"):
+            self.assertNotIn(claim, card)
+        self.assertIn('datetime="2023-11-14T22:14:10Z"', card)
+        self.assertIn('datetime="2023-11-14T22:14:20Z"', card)
+        self.assertIn('<span class="clock-note">logged</span>', card)
+        self.assertIn("shows when it was logged after scanning", card)
+        inverted = self.card(render_timeline([self.observed(observation={"observed_from": 1700000070.0, "observed_to": 1700000060.0})]))
+        self.assertIn("inconsistent", inverted)
+        self.assertNotIn("Changed at some point", inverted)
+        for bad in ({}, None, "x", {"observed_from": "yesterday", "observed_to": float("nan")}, {"observed_to": True}):
+            self.assertIn("Reported scan bounds unavailable", self.card(render_timeline([self.observed(observation=bad)])))
+        partial = self.card(render_timeline([self.observed(observation={"observed_to": 1700000060.0})]))
+        self.assertIn("only the end bound", partial)
+
+    def test_related_changes_link_only_canonical_shown_ids_and_never_claim_cause(self):
+        html = render_timeline([self.observed(observation={"observed_from": 1, "observed_to": 2,
+                                "related_change_ids": ["a" * 32, "e" * 32, 'javascript:alert(1)', 7] + ["f" * 32] * 30}), row()])
+        card = self.card(html)
+        self.assertIn('href="#change-' + "a" * 32 + '"', card)
+        self.assertNotIn('href="#change-' + "e" * 32, card)
+        self.assertIn("outside this snapshot", card)
+        self.assertIn("and 14 more", card)
+        self.assertIn("shown as context for review", card)
+        self.assertIn("does not establish exactly when either change happened, their order, or that either caused the other", card)
+        self.assertNotIn("overlap in time", card)
+        hrefs = [attrs["href"] for _, attrs in Document(html).elements if "href" in attrs]
+        self.assertTrue(all(h == "#timeline" or h == "#change-" + "a" * 32 for h in hrefs), hrefs)
+
+    def test_observed_rows_exclude_hostile_and_unnamed_fields(self):
+        payload = '"><img src=x onerror=alert(1)><script>x()</script>'
+        hostile = self.observed(actor=payload, source=payload, attribution=payload, before_text="DO_NOT_EXPORT_before",
+                                diff="DO_NOT_EXPORT_diff", token="DO_NOT_EXPORT_token", label=payload,
+                                observation={"session_id": payload, "observed_from": 1, "observed_to": 2,
+                                             "related_change_ids": [payload], "before": "DO_NOT_EXPORT_obs",
+                                             "after_hash": "DO_NOT_EXPORT_hash", "command": "DO_NOT_EXPORT_shell"})
+        html = render_timeline([hostile], {"observation": {"state": "active", "root": "DO_NOT_EXPORT_ROOT",
+                                                           "scopes": ["DO_NOT_EXPORT_SCOPE"], "liveness": "not_checked"}})
+        doc = Document(html)
+        self.assertNotIn("DO_NOT_EXPORT", html)
+        self.assertFalse({"img", "script"} & {tag for tag, _ in doc.elements})
+        self.assertTrue(all(not key.startswith("on") for _, attrs in doc.elements for key in attrs))
+        self.assertIn("&lt;img", html)
+
+    def test_recorder_summary_reports_last_state_but_never_claims_liveness(self):
+        html = render_timeline([], {"observation": {"state": "active", "last_scan": 1700000060.0, "liveness": "not_checked",
+                                                    "files": 12, "skipped": 1, "interval": 2}})
+        for text in ("Outside-tool recording", "Recording, as last reported", "Not checked", "cannot tell whether a recorder is running right now",
+                     'datetime="2023-11-14T22:14:20Z"', "every 2 s", "first scan only sets a baseline",
+                     "No captured test evidence means unknown", "does not record test results"):
+            self.assertIn(text, html)
+        claimed = render_timeline([], {"observation": {"state": "active", "liveness": "live"}})
+        self.assertIn("<dt>Recorder liveness</dt><dd>Unknown</dd>", claimed)
+        for state, expected in (("interrupted", "Interrupted"), ("weird", "<dd>Unknown</dd>"), (None, "Not reported")):
+            self.assertIn(expected, render_timeline([], {"observation": {"state": state}}))
+        self.assertIn("No scan reported", render_timeline([], {"observation": {"last_scan": "soon"}}))
+
+    def test_no_recorder_means_no_observation_panel_or_legend(self):
+        html = render_timeline([row()], {"recorded_count": 1})
+        self.assertNotIn("Outside-tool recording", html)
+        self.assertNotIn("node observed", html)
+        self.assertIn("Observed rows shown</dt><dd>1", render_timeline([self.observed()]))
+
+
 if __name__ == "__main__":
     unittest.main()

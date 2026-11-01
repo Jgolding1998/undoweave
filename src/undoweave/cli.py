@@ -1,6 +1,6 @@
 """Command-line interface for UndoWeave.
 
-Every command except ``history --format html`` and ``config --client claude|codex``
+Every command except ``history --format html``, ``watch`` and ``config --client claude|codex``
 prints one JSON document. Successful results go to stdout; errors go to stderr as
 ``{"ok": false, "error": {"code": ..., "message": ...}}`` with a non-zero exit
 status. No command runs shell commands, executes file content, or changes any
@@ -15,11 +15,13 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import math
 import os
 import shlex
 import stat
 import sys
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -70,7 +72,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="COMMAND", parser_class=_Parser)
     sub.required = True
 
-    sub.add_parser("serve", help="run the MCP server over stdio (needs the 'mcp' extra)")
+    p = sub.add_parser("serve", help="run the MCP server over stdio (needs the 'mcp' extra)")
+    _add_recording_options(p)
+
+    p = sub.add_parser("watch", help="observe selected project paths until Ctrl+C; never changes project content")
+    p.add_argument("paths", nargs="+", help="explicit project-relative files or directories")
+    p.add_argument("--interval", type=float, default=1.0, help="poll seconds, 0.25 to 60 (default 1)")
+
+    p = sub.add_parser("inspect", help="read the recorded evidence and bounded diff for one change")
+    p.add_argument("change_id")
 
     p = sub.add_parser("read", help="read a file and print its sha256")
     p.add_argument("path")
@@ -110,7 +120,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="show version, root, state directory and journal health")
 
-    sub.add_parser("demo", help="run a self-checking demo in a throwaway temporary directory")
+    p = sub.add_parser("demo", help="run a self-checking demo in a throwaway temporary directory")
+    p.add_argument("--recording", action="store_true", help="demonstrate outside-tool recording and persisted evidence")
 
     p = sub.add_parser(
         "config",
@@ -120,7 +131,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--client", choices=("generic", "claude", "codex"), default="generic",
         help="generic: mcpServers JSON (default); claude/codex: copy-paste instructions",
     )
+    _add_recording_options(p)
     return parser
+
+
+def _add_recording_options(parser) -> None:
+    parser.add_argument("--watch", action="append", default=[], metavar="PATH",
+                        help="opt in to observing this project-relative path; repeat for more paths")
+    parser.add_argument("--interval", type=float, default=1.0,
+                        help="recording poll seconds, 0.25 to 60 (default 1)")
+
+
+def _recording_scopes(args) -> list[str]:
+    """Validate printed opt-in arguments without scanning or creating state."""
+    scopes = list(getattr(args, "watch", []))
+    interval = getattr(args, "interval", 1.0)
+    if not math.isfinite(interval) or not .25 <= interval <= 60:
+        raise UsageError("--interval must be between 0.25 and 60 seconds", "invalid_recording")
+    if len(scopes) > 16:
+        raise UsageError("Choose at most 16 recording paths", "invalid_recording")
+    for scope in scopes:
+        if (not scope or len(scope) > 1024 or scope.startswith("/") or
+                any(char in scope for char in '\\:<>"|?*') or
+                any(ord(char) < 32 or ord(char) == 127 for char in scope) or
+                any(part in ("", ".", "..") for part in scope.split("/"))):
+            raise UsageError("Use explicit project-relative paths with forward slashes", "invalid_recording")
+    if scopes:
+        from .recorder import validate_scopes
+        return list(validate_scopes(scopes))
+    return scopes
 
 
 def _emit(payload: Any, stream=None) -> None:
@@ -217,14 +256,93 @@ def _serve(args: argparse.Namespace) -> int:
             print(f"undoweave: warning: tested with mcp=={MCP_VERSION}, found {installed}", file=sys.stderr)
     except Exception:
         pass
+    scopes = _recording_scopes(args)
     engine = _make_engine(args)  # fail fast (before any MCP traffic) on a bad root
     from undoweave import mcp_server
+    if scopes:
+        from .recorder import Recorder
+        recorder = Recorder(engine, scopes, interval=args.interval)
+        try:
+            recorder.start()
+            mcp_server.serve(engine)
+        finally:
+            recorder.stop()
+    else:
+        mcp_server.serve(engine)
+    return 0
 
-    mcp_server.serve(engine)
+
+def _watch(args: argparse.Namespace) -> int:
+    """Foreground, explicit recording. Stdout contains two JSON event lines."""
+    from .recorder import Recorder
+    args.watch = args.paths
+    scopes = _recording_scopes(args)
+    engine = _make_engine(args)
+    recorder = Recorder(engine, scopes, interval=args.interval)
+    try:
+        recorder.start()
+        print(json.dumps({"event": "recording_started", "recording": recorder.status()}, ensure_ascii=True), flush=True)
+        # The recorder owns scheduling. This wait only handles foreground lifetime.
+        lifetime = threading.Event()
+        while not lifetime.wait(.25):
+            status = recorder.status()
+            if status.get("state") in ("failed", "stopped", "error"):
+                _Engine, UndoWeaveError = load_core()
+                raise UndoWeaveError("recording_stopped", "Recording stopped. Inspect workspace status for coverage limits.")
+    except KeyboardInterrupt:
+        pass
+    finally:
+        recorder.stop()
+    print(json.dumps({"event": "recording_stopped", "recording": recorder.status()}, ensure_ascii=True), flush=True)
     return 0
 
 
 # --------------------------------------------------------------------------- demo
+
+
+def _run_recording_demo() -> dict:
+    """A disposable outside-editor save with evidence surviving a new Engine."""
+    from .recorder import Recorder
+    Engine, UndoWeaveError = load_core()
+    with tempfile.TemporaryDirectory(prefix="undoweave-recording-demo-") as temporary:
+        base = Path(temporary).resolve()
+        project = base / "project"
+        project.mkdir()
+        target = project / "app.py"
+        before = "timeout = 30\nseparator = 'keep'\nretries = 3\n"
+        after = before.replace("timeout = 30", "timeout = 0")
+        target.write_text(before, encoding="utf-8")
+        engine = Engine(project, base / "state")
+        recorder = Recorder(engine, ["app.py"], interval=.25)
+        try:
+            recorder.scan_once()
+            _check(not engine.history(), "Initial baseline must not invent a past change")
+            # This save deliberately bypasses UndoWeave's write/replace tools.
+            target.write_text(after, encoding="utf-8")
+            recorder.scan_once()
+            recorder.scan_once()
+            changes = engine.history()
+            _check(len(changes) == 1 and changes[0]["status"] == "observed", "Outside save was not observed")
+            change_id = changes[0]["id"]
+        finally:
+            recorder.stop()
+        restarted = Engine(project, base / "state")
+        evidence = restarted.inspect_change(change_id)
+        _check("-timeout = 30" in evidence["diff"] and "+timeout = 0" in evidence["diff"], "Persisted evidence lost the actual change")
+        _check(evidence["check_evidence"] == "not_captured", "Demo must not invent a test outcome")
+        try:
+            restarted.preview_undo(change_id)
+        except UndoWeaveError as error:
+            _check(error.code == "observation_not_undoable", "Unexpected refusal for observed evidence")
+        else:
+            raise DemoFailure("Observed net snapshots must not masquerade as selectively undoable edits")
+        _check(target.read_text(encoding="utf-8") == after, "Inspecting evidence changed the source")
+        return {"ok": True, "synthetic": True, "observed_changes": 1,
+                "outside_save_captured": True, "persisted_after_restart": True,
+                "initial_baseline_invented_no_history": True,
+                "author": "unknown", "check_evidence": "not_captured",
+                "diff": evidence["diff"], "selective_undo": "tool_recorded_edits_only",
+                "limits": "Observed net snapshots can combine saves and miss fast intermediate changes; they do not prove a failure cause."}
 
 _DEMO_FILE = "settings.ini"
 _DEMO_ORIGINAL = (
@@ -335,7 +453,13 @@ def _server_argv(args: argparse.Namespace) -> list[str]:
     argv = [sys.executable, "-I", "-m", "undoweave", "--root", str(args.root)]
     if args.state_dir is not None:
         argv += ["--state-dir", str(args.state_dir)]
-    return argv + ["serve"]
+    argv += ["serve"]
+    scopes = _recording_scopes(args)
+    for scope in scopes:
+        argv += ["--watch", scope]
+    if scopes:
+        argv += ["--interval", str(args.interval)]
+    return argv
 
 
 # PowerShell treats the ASCII apostrophe and these typographic quotes as single-quote
@@ -444,10 +568,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         args = parser.parse_args(argv)
         if args.command == "serve":
             return _serve(args)
+        if args.command == "watch":
+            return _watch(args)
         if args.command == "demo":
             if args.root is not None or args.state_dir is not None:
                 raise UsageError("'demo' always uses a temporary directory; do not pass --root/--state-dir")
-            _emit(_run_demo())
+            _emit(_run_recording_demo() if args.recording else _run_demo())
             return 0
         if args.command == "config":
             _config_or_usage_error(args)
@@ -494,6 +620,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = engine.apply_undo(args.token)
             elif args.command == "status":
                 result = engine.status()
+            elif args.command == "inspect":
+                result = engine.inspect_change(args.change_id)
             else:  # pragma: no cover - argparse restricts choices
                 raise UsageError(f"unknown command {args.command!r}")
         _emit(result)

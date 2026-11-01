@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "benchmark": "recording-development-20-v1",
+  "provenance": "Synthetic20-case development regression originally authored before implementation inspection; now public fixtures, not a fresh unseen external benchmark.",
+  "original_producer_sha256": "7605f517e1d19e8ea519bedfaece3a7ac3114d4dd22389be596e3348f62586ad",
+  "model_answers_included": false,
+  "files": {
+    "README.md": {
+      "sha256": "81eaccb2c66e31531589eef2136baebacd45a34b64bd5ba91220858734193cd0",
+      "bytes": 5978
+    },
+    "run.py": {
+      "sha256": "4439c4701d6621c16b8f48b22622413d5d81a280a6b8cb3d71eae9b9ae691c86",
+      "bytes": 22713
+    },
+    "worker.py": {
+      "sha256": "426bd9d14358a34fb318fe552d4fffb92afbac82fb7ad633be7b9231c68e5fc6",
+      "bytes": 3390
+    },
+    "cases.json": {
+      "sha256": "7605f517e1d19e8ea519bedfaece3a7ac3114d4dd22389be596e3348f62586ad",
+      "bytes": 54441
+    },
+    "expected-transitions.json": {
+      "sha256": "f8dc10834ad2ef2eb58e450eb4fc5d8b48a4bc4e530d58e4d3668a68a6c79ea7",
+      "bytes": 12873
+    }
+  }
+}

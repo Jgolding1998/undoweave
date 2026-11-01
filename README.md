@@ -3,14 +3,16 @@
 <p align="center"><img src="docs/assets/banner.svg" alt="UndoWeave: undo the agent's edit, keep the rest" width="100%"></p>
 
 <h1 align="center">UndoWeave</h1>
-<p align="center"><strong>Undo a recorded agent edit. Keep the separate work that came after it.</strong></p>
-<p align="center">A local CLI and MCP for careful recovery from coding-agent edits.</p>
+<p align="center"><strong>See what changed. Keep the evidence when the chat is gone.</strong></p>
+<p align="center">A local change timeline and selective undo for coding work.</p>
 <p align="center"><a href="#try-it">Try it</a> · <a href="docs/INSTALL.md">Connect your agent</a> · <a href="docs/AGENT_INSTRUCTIONS.md">Agent instructions</a> · <a href="docs/COMPARISON.md">Measured comparisons</a></p>
 <p align="center"><a href="https://github.com/Jgolding1998/undoweave/actions/workflows/checks.yml"><img src="https://github.com/Jgolding1998/undoweave/actions/workflows/checks.yml/badge.svg" alt="Cross-platform checks"></a></p>
 
 Agent A changes one line. You change another. Agent B changes a third. UndoWeave can reverse A's recorded edit while keeping your and B's separate changes. Overlapping or ambiguous edits produce a conflict, with no project file changed.
 
-**Early release:** edits must go through UndoWeave's tools. It does not intercept your agent's shell or built-in editor, identify the author of outside changes, or replace Git backups. Actor names are caller-supplied labels.
+Optional project recording observes changes made with an agent's own editor or a human's editor. You can inspect saved diffs after restarting the agent, without asking it to remember. Recording starts only for the paths you explicitly select.
+
+**Two kinds of evidence:** edits made through UndoWeave's tools support selective undo. Outside changes are observed net snapshots with unknown authors and timing limits. They are read-only evidence, not individually undoable agent actions. Nothing identifies a failure's cause automatically or replaces Git backups. Actor names on tool edits are caller-supplied labels.
 
 First initialization creates a small, source-free `.undoweave-id` marker in the chosen project. Keep it and exclude it from version control. Existing v0.1 journals need [explicit reviewed adoption](docs/MIGRATION.md); the MCP never guesses their identity.
 
@@ -19,11 +21,12 @@ First initialization creates a small, source-free `.undoweave-id` marker in the 
 Python 3.11+ and Git are required for this install command. No AI subscription, API key, or paid service is needed for the demo.
 
 ```sh
-python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.2.1"
+python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.3.0"
 undoweave demo
+undoweave demo --recording
 ```
 
-The demo uses a disposable directory. It checks selective undo, preservation of a human edit and another agent's edit, conflicts, and stale previews. It does not edit your project or call a model. If your system requires an isolated Python environment, see the [installation guide](docs/INSTALL.md).
+Both demos use disposable directories. The first checks selective undo and preservation of separate work. The recording demo captures an ordinary outside save, restarts the engine, and verifies the retained diff. Neither edits your project or calls a model. If your system requires an isolated Python environment, see the [installation guide](docs/INSTALL.md).
 
 From a source checkout:
 
@@ -39,10 +42,10 @@ There is no PyPI release yet. Use the versioned Git install above or install thi
 ## Use it with an agent
 
 ```sh
-undoweave --root /absolute/path/to/your/project config
+undoweave --root /absolute/path/to/your/project config --watch src --watch tests
 ```
 
-The command prints configuration only. It does not change client settings. Use `config --client claude` for Claude Code instructions or `config --client codex` for Codex commands and TOML. Restart or reconnect the client, then ask it to read the `safe_editing` prompt or `undoweave://instructions` resource.
+Choose existing project paths you want recorded. This command prints configuration only, with those paths pinned at startup. It does not change client settings or start recording. Use `config --client claude --watch src` for Claude Code instructions or `config --client codex --watch src` for Codex commands and TOML. Restart or reconnect the client, then ask it to read the `safe_editing` prompt or `undoweave://instructions` resource. Omit `--watch` for tool edits only.
 
 Give the agent these instructions:
 
@@ -56,6 +59,7 @@ The root is fixed at startup. Tools cannot choose another project or run command
 | `write_file` | Record one whole-file replacement, creation, or explicit deletion |
 | `replace_text` | Record one exact unique text replacement using the full-file hash |
 | `list_changes` | List source-free operation summaries |
+| `inspect_change` | Read the saved evidence and bounded diff for one change |
 | `preview_undo` | Review an inverse and obtain a short-lived token |
 | `apply_undo` | Apply that reviewed inverse if the file and recorded history are still current |
 | `workspace_status` | Show configuration, limits, and journal counts |
@@ -64,6 +68,20 @@ For a small change, `read_file` can return metadata or selected lines and
 `replace_text` can send only the exact old/new text. The hash always covers the
 whole file; this reduces MCP payloads, not the local file hashing work. Ambiguous
 or overlapping duplicate matches are refused.
+
+## What did the agent change?
+
+Ask your agent to read `workspace_status`, `list_changes`, and `inspect_change` for the relevant IDs. It can explain the actual saved differences, distinguish tool edits from unknown-author observations, and tell you where recording was incomplete. That evidence survives a new conversation or a different MCP client using the same project journal.
+
+You can also record selected paths in a separate terminal:
+
+```sh
+undoweave --root /absolute/project watch src tests
+```
+
+Keep it running while you work; Ctrl+C stops it. Use one recorder per journal, either the foreground command or one MCP server with `--watch`. It never runs your project or test commands. [Recording guide and limits](docs/RECORDING.md).
+
+Two work sessions can leave identical final files but have different earlier changes. A fresh model given only the final files cannot uniquely recover that missing history. A model with the recorded evidence can inspect it. In a 20-case synthetic regression, all 29 stable transitions were retained after restarting, distinguishing nine pairs with identical starting and final files. One deliberately unobservable pair stayed unknown. [Reproduce the comparison](benchmarks/recording/README.md). The journal still cannot establish who made an outside change, capture every fast save, prove that tests passed, or prove which change caused a failure.
 
 ## What happens when changes overlap?
 
@@ -106,7 +124,7 @@ support varies; the CLI export works independently. Try the
 - `read_file` and preview diffs disclose selected source to your MCP client. Your client's normal data handling applies.
 - Credential-like paths, Git metadata, binary files, symlinks, reparse points and hardlinks are refused. These are guardrails, not a complete secret detector or an OS sandbox.
 - File hashes, expiring one-use previews, bounded comparisons, a process lock and a durable intent journal reduce accidental overwrite risk. Outside editors are not locked; a residual validation-to-write race remains.
-- Maximum 1 MiB and 4000 physical lines per file, 16000 characters per preview diff, five-minute preview lifetime, and 128 MiB journal. Repeated text can prevent a safe alignment. It never scans the whole workspace to record one edit.
+- Tool edits have a maximum of 1 MiB and 4000 physical lines per file, 16000 characters per preview diff, five-minute preview lifetime, and 128 MiB journal. Optional recording has smaller per-file and aggregate limits. Repeated text can prevent a safe alignment. A tool edit does not scan the whole workspace.
 
 Read the [threat model and recovery notes](SECURITY.md) before using it on important work.
 
@@ -121,6 +139,10 @@ python -I -m undoweave demo
 Tests include real MCP subprocess calls, randomized merge cases, crash recovery, concurrent cooperating writers, path escapes, stale previews and local journal corruption. Synthetic tests and comparison fixtures are development evidence, not a guarantee against data loss on every project. See the [validation record](docs/VALIDATION.md) and [comparisons](docs/COMPARISON.md) for the precise checks, pinned upstream versions and limitations.
 
 ## Help test a real workflow
+
+Interface refinement used [Unslop](https://github.com/heydamir/unslop) by Damir
+Sokolovsky, licensed under CC BY 4.0. The timeline and recovery behavior remain
+specific to UndoWeave.
 
 Start in a disposable copy of a project. Try two agents and your own editor, preview an undo, and check every resulting diff. Tell us where the tool refused a change you expected to work, or where setup was confusing. Share a small synthetic reproduction, never private source or journal files.
 

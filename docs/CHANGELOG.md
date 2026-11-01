@@ -1,5 +1,22 @@
 # Release notes
 
+## 0.3.0
+
+- Add opt-in recording for explicit project paths, including saves made outside
+  MCP tools. Stable observed net changes retain source evidence and unknown
+  attribution, with startup/coverage/scan limits and one recorder per journal.
+- Add `inspect_change`, CLI `inspect`, pinned `config --watch`/`serve --watch`,
+  foreground `watch`, and a disposable `demo --recording` restart example.
+- Keep observed snapshots read-only. They are never pending write intents or
+  selectively undoable agent actions; existing tool edits retain preview/undo.
+- Distinguish observations and capture intervals on the actual timeline;
+  refine typography and spacing using Unslop while preserving product identity.
+- Expose no model reasoning or invented check results. Recorded evidence can
+  support investigation after context loss; it does not establish causality.
+- Publish a 20-case recording replay and a candid with/without-evidence reader
+  comparison. Explicit scan-bound, per-file and journal-order metadata addresses
+  ordering mistakes found in that exercise; its model effect is not yet measured.
+
 ## 0.2.1
 
 - Show recorded changes on a continuous timeline with UTC day groups, a separate

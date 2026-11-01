@@ -4,7 +4,7 @@ UndoWeave is an early local file-editing utility. Keep a separate backup or Git 
 
 ## Intended environment
 
-One trusted local user, an explicitly chosen project directory, and a private state directory shared by cooperating UndoWeave processes. The MCP server only uses stdio. There is no HTTP transport, command runner, plugin loader, filesystem watcher, telemetry or model API.
+One trusted local user, an explicitly chosen project directory, and a private state directory shared by cooperating UndoWeave processes. The MCP server only uses stdio. There is no HTTP transport, command runner, plugin loader, telemetry or model API. Optional startup-pinned recording observes selected paths while its process is running; it is off by default.
 
 The MCP client and its agent are trusted with file-editing access to the selected root. Tool annotations and agent instructions are advisory. The server cannot enforce that a human approved a tool call; anyone with access to the MCP connection can call write/apply. A preview token binds an operation to a recent reviewable state; it is not human authentication. Do not give an untrusted remote client access to this server.
 
@@ -30,7 +30,31 @@ UndoWeave is not a sandbox against malware or a hostile process running as the s
 
 Privileged filesystem mounts can make an otherwise external state directory reachable inside a project. Do not mount the state tree into the project. Filesystems with unreliable directory identities can cause conservative false refusals. Symlinked root/home paths are unsupported; choose their actual resolved location.
 
-Hashes detect mismatches, not malicious journal rewriting by the same user. Actor labels are self-reported. UndoWeave cannot infer authorship, intent, or history for edits made elsewhere; identical resulting text is indistinguishable. Text movement or human recreation of identical content may also be indistinguishable.
+Hashes detect mismatches, not malicious journal rewriting by the same user. Actor labels are self-reported. Optional observations retain net outside changes with unknown authors, not complete actions or intent. Fast save/revert sequences can be indistinguishable from no change. Text movement or human recreation of identical content may also be indistinguishable.
+
+## Optional recording
+
+The operator enables recording with explicit relative scopes in `watch` or
+`serve --watch`. MCP tools cannot enable or widen it. Only one recorder holds
+the journal's separate observation lease. It does not lock outside editors.
+Scanning and source retention are bounded and exclude protected paths, links,
+artifacts and conservative positive project ignore rules. These exclusions
+cannot identify every secret inside ordinary source. See [recording limits](docs/RECORDING.md).
+
+Observed entries are inserted as `observed`, never pending write intents or
+applied edits. Recovery does not pretend the recorder wrote them, and undo
+explicitly refuses them. They retain before/after snapshots for inspection,
+including intervals and unknown attribution. Inspection returns an escaped,
+bounded diff; the standalone timeline remains source-free. No check result,
+command output or private model reasoning is collected. Persisted session
+state is a last report, not independently verified process liveness.
+
+An incomplete scan is not evidence of deletion. An interrupted recorder or
+restart leaves coverage limits; a new baseline never fabricates missing
+history. Atomic-save identity checks reduce accidental stale captures, but
+same-user hostile races and filesystem blocking remain outside a sandbox
+guarantee. Recording adds to plaintext source retention; keep scopes and the
+state directory private.
 
 There is no atomic transaction spanning several files. This release tracks text, not complete filesystem metadata. Creating or recreating a file uses owner-only mode rather than restoring its old executable bits. Atomic replacement does not preserve custom Windows ACLs, hidden/system attributes, ownership, extended attributes or alternate streams. Existing POSIX mode bits are preserved for replacements; review permissions after recovery when they matter.
 
@@ -42,7 +66,7 @@ Before/after snapshots are plaintext in `journal.sqlite3`; preview records store
 
 POSIX state directories/files require owner-only permissions. On Windows the state directory inherits its parent's ACL; Python mode bits do not configure an owner-only NTFS ACL. Choose a private user-owned location and review the ACL for your environment. Snapshots are not encrypted, automatically expired or securely erased. Preview tokens expire after five minutes, but undo history persists until you deliberately archive or remove the journal.
 
-Do not share journal files, source diffs, tokens, credentials or raw private captures in public issues. `read_file` and preview diffs are returned to the MCP client, which may send them to its model provider. No source is uploaded by the core itself.
+Do not share journal files, source diffs, tokens, credentials or raw private captures in public issues. `read_file`, `inspect_change` and preview diffs are returned to the MCP client, which may send them to its model provider. No source is uploaded by the core itself.
 
 ## Interrupted write recovery
 

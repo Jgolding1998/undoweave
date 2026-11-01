@@ -21,6 +21,12 @@ ABS_PYTHON -I -m undoweave --root ABS_PROJECT config --client codex     # a `cod
 Add `--state-dir ABS_STATE_DIR` before `config` to pin the journal location too.
 If that interpreter cannot import `mcp` 2.x yet, `config` warns on stderr.
 
+Append `--watch src --watch tests` after `config` to opt in to observing those
+project paths. This prints pinned recording arguments; it does not start a
+watcher or change configuration. One recorder runs with that MCP server until
+it disconnects. Other clients can connect without `--watch` to share the
+history. See [recording setup and limits](RECORDING.md).
+
 The generated launch includes Python's `-I` isolated mode. Keep it: files in
 the selected project and its `PYTHONPATH` must not replace the installed server
 or SDK during startup. Install the package into the chosen interpreter first.
@@ -167,11 +173,25 @@ ask the agent to use the `safe_editing` prompt:
 > explicit confirmation before `apply_undo`. If the preview is a conflict, stop
 > and explain it. There is no force option, so don't try to work around it.
 
+For investigating past work, also give it:
+
+> Use workspace_status and list_changes, then inspect_change for relevant IDs.
+> Base the explanation on saved diffs and cite their IDs. Distinguish
+> tool-recorded edits from unknown-author observed net changes. Explain
+> coverage gaps. Do not invent an outside author, test result or failure cause.
+> Journal order and overlapping capture intervals do not prove actual save
+> order, a rename command, or a simultaneous state across multiple files.
+> Distinguish a witnessed snapshot from a possible explanation.
+
 ## What UndoWeave does not do
 
-- It only knows about edits made through `write_file` or `replace_text`. An agent's built-in
-  file tools, shell commands, and human editors are not recorded. A later
-  undo tries to keep those changes, but they can't be undone through UndoWeave.
+- Outside saves are observed only when the operator enabled recording and
+  only inside the selected scopes while it runs. They can combine multiple
+  actors/saves or miss fast changes. Authors are unknown, and selective undo
+  refuses observed entries. Without recording, only tool edits are retained.
+- It does not record private reasoning, transcripts, command/test output or
+  proven failure causes. Inspecting a saved diff discloses that source to the
+  MCP client; its normal data handling applies.
 - It does not lock files. Someone can change a file between preview and apply.
   `apply_undo` re-checks the file hash and refuses if it changed, but an edit
   that lands after that check is a residual race.
@@ -204,12 +224,15 @@ python -I -m undoweave --root ABS_PROJECT replace notes.txt --old-file ABS_OLD_T
 python -I -m undoweave --root ABS_PROJECT edit notes.txt --content-file ABS_NEW_CONTENT --actor me --expected-hash SHA256
 python -I -m undoweave --root ABS_PROJECT edit notes.txt --delete --actor me --expected-hash SHA256
 python -I -m undoweave --root ABS_PROJECT history --limit 20
+python -I -m undoweave --root ABS_PROJECT inspect CHANGE_ID
 python -I -m undoweave --root ABS_PROJECT history --format html > timeline.html
 python -I -m undoweave --root ABS_PROJECT preview EDIT_ID
 python -I -m undoweave --root ABS_PROJECT undo TOKEN
 python -I -m undoweave --root ABS_PROJECT status
 python -I -m undoweave --root ABS_PROJECT config [--client generic|claude|codex]
 python -I -m undoweave demo
+python -I -m undoweave demo --recording
+python -I -m undoweave --root ABS_PROJECT watch src tests
 ```
 
 `--content-file` must be a regular file (symlinks, reparse points, FIFOs,

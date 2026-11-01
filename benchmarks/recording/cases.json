@@ -1,0 +1,1780 @@
+{
+  "schema_version": "1.0",
+  "role": "producer_only",
+  "cases": [
+    {
+      "case_id": "case-289d411d9ea5",
+      "pair_id": "pair-01",
+      "producer_variant": "a",
+      "initial_files": {
+        "source/status.txt": {
+          "encoding": "utf-8",
+          "text": "status=ready\n",
+          "sha256": "c09da94f6a42f05a32e3450594baa261a12a4ff53b301e764ce6172290b0cc15"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/status.txt",
+          "text": "status=paused\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/status.txt",
+          "text": "status=ready\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "source/status.txt": {
+          "encoding": "utf-8",
+          "text": "status=ready\n",
+          "sha256": "c09da94f6a42f05a32e3450594baa261a12a4ff53b301e764ce6172290b0cc15"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct status values are supported by retained stable observations, in their observed order?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does the retained record contain a stable paused state, and a later restoration?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-031ee0d0c721",
+      "pair_id": "pair-01",
+      "producer_variant": "b",
+      "initial_files": {
+        "source/status.txt": {
+          "encoding": "utf-8",
+          "text": "status=ready\n",
+          "sha256": "c09da94f6a42f05a32e3450594baa261a12a4ff53b301e764ce6172290b0cc15"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-04",
+          "logical_order": 4
+        }
+      ],
+      "final_files": {
+        "source/status.txt": {
+          "encoding": "utf-8",
+          "text": "status=ready\n",
+          "sha256": "c09da94f6a42f05a32e3450594baa261a12a4ff53b301e764ce6172290b0cc15"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct status values are supported by retained stable observations, in their observed order?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does the retained record contain a stable paused state, and a later restoration?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-9199af3b5023",
+      "pair_id": "pair-02",
+      "producer_variant": "a",
+      "initial_files": {
+        "source/guide.txt": {
+          "encoding": "utf-8",
+          "text": "A synthetic guide.\n",
+          "sha256": "3fbd539350aa8de060fb8f9ff22666faf5669b2d86a8ca05271c955674e64bb7"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_delete",
+          "path": "source/guide.txt",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/guide.txt",
+          "text": "A synthetic guide.\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "source/guide.txt": {
+          "encoding": "utf-8",
+          "text": "A synthetic guide.\n",
+          "sha256": "3fbd539350aa8de060fb8f9ff22666faf5669b2d86a8ca05271c955674e64bb7"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct observed presence states does the retained record support for source/guide.txt?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Is an absent guide file captured in the record, rather than inferred from the final file?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-87657bb1f464",
+      "pair_id": "pair-02",
+      "producer_variant": "b",
+      "initial_files": {
+        "source/guide.txt": {
+          "encoding": "utf-8",
+          "text": "A synthetic guide.\n",
+          "sha256": "3fbd539350aa8de060fb8f9ff22666faf5669b2d86a8ca05271c955674e64bb7"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-04",
+          "logical_order": 4
+        }
+      ],
+      "final_files": {
+        "source/guide.txt": {
+          "encoding": "utf-8",
+          "text": "A synthetic guide.\n",
+          "sha256": "3fbd539350aa8de060fb8f9ff22666faf5669b2d86a8ca05271c955674e64bb7"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct observed presence states does the retained record support for source/guide.txt?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Is an absent guide file captured in the record, rather than inferred from the final file?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-92c2484bbdd8",
+      "pair_id": "pair-03",
+      "producer_variant": "a",
+      "initial_files": {
+        "source/alpha.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=false\n",
+          "sha256": "fb5ff1984232edecfce6fbfa6deb6374bcd7bf898f58d2c51b9e46cbbbbb78fe"
+        },
+        "source/beta.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=false\n",
+          "sha256": "fb5ff1984232edecfce6fbfa6deb6374bcd7bf898f58d2c51b9e46cbbbbb78fe"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/alpha.txt",
+          "text": "enabled=true\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/beta.txt",
+          "text": "enabled=true\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "source/alpha.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=true\n",
+          "sha256": "f6a2565056ed10ba270da94e671fa5d7ced8ade044fc8b31a851840f7bce654f"
+        },
+        "source/beta.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=true\n",
+          "sha256": "f6a2565056ed10ba270da94e671fa5d7ced8ade044fc8b31a851840f7bce654f"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "In what order does retained evidence first show these files becoming enabled?"
+        },
+        {
+          "question_id": "q3",
+          "text": "What enabled combination is captured between the initial and final state?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-008f6c69a038",
+      "pair_id": "pair-03",
+      "producer_variant": "b",
+      "initial_files": {
+        "source/alpha.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=false\n",
+          "sha256": "fb5ff1984232edecfce6fbfa6deb6374bcd7bf898f58d2c51b9e46cbbbbb78fe"
+        },
+        "source/beta.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=false\n",
+          "sha256": "fb5ff1984232edecfce6fbfa6deb6374bcd7bf898f58d2c51b9e46cbbbbb78fe"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/beta.txt",
+          "text": "enabled=true\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/alpha.txt",
+          "text": "enabled=true\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "source/alpha.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=true\n",
+          "sha256": "f6a2565056ed10ba270da94e671fa5d7ced8ade044fc8b31a851840f7bce654f"
+        },
+        "source/beta.txt": {
+          "encoding": "utf-8",
+          "text": "enabled=true\n",
+          "sha256": "f6a2565056ed10ba270da94e671fa5d7ced8ade044fc8b31a851840f7bce654f"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "In what order does retained evidence first show these files becoming enabled?"
+        },
+        {
+          "question_id": "q3",
+          "text": "What enabled combination is captured between the initial and final state?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-4546e4820cf3",
+      "pair_id": "pair-04",
+      "producer_variant": "a",
+      "initial_files": {
+        "config/display.json": {
+          "encoding": "utf-8",
+          "text": "{\"theme\":\"day\",\"limit\":5}\n",
+          "sha256": "be98dfcc2dda4cb54357362d555b4ec44c18a0bdc51ba1d02cad07ef70d25baa"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "tool_write",
+          "path": "config/display.json",
+          "text": "{\"theme\":\"night\",\"limit\":5}\n",
+          "self_reported_actor_label": "synthetic-agent",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/display.json",
+          "text": "{\"theme\":\"night\",\"limit\":8}\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "config/display.json": {
+          "encoding": "utf-8",
+          "text": "{\"theme\":\"night\",\"limit\":8}\n",
+          "sha256": "c6dcffab6d6df58b12b4af5314d54d5657ba1896b1bb3484bcf68ec2b1abed5a"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which setting change is evidenced first: theme or limit?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Which changes have a tool-mediated record, and which only outside-tool observations? Qualify any actor label."
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-09ca382bc4c3",
+      "pair_id": "pair-04",
+      "producer_variant": "b",
+      "initial_files": {
+        "config/display.json": {
+          "encoding": "utf-8",
+          "text": "{\"theme\":\"day\",\"limit\":5}\n",
+          "sha256": "be98dfcc2dda4cb54357362d555b4ec44c18a0bdc51ba1d02cad07ef70d25baa"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/display.json",
+          "text": "{\"theme\":\"day\",\"limit\":8}\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "tool_write",
+          "path": "config/display.json",
+          "text": "{\"theme\":\"night\",\"limit\":8}\n",
+          "self_reported_actor_label": "synthetic-agent",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "config/display.json": {
+          "encoding": "utf-8",
+          "text": "{\"theme\":\"night\",\"limit\":8}\n",
+          "sha256": "c6dcffab6d6df58b12b4af5314d54d5657ba1896b1bb3484bcf68ec2b1abed5a"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which setting change is evidenced first: theme or limit?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Which changes have a tool-mediated record, and which only outside-tool observations? Qualify any actor label."
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-04ef20b7389f",
+      "pair_id": "pair-05",
+      "producer_variant": "a",
+      "initial_files": {
+        "config/service.json": {
+          "encoding": "utf-8",
+          "text": "{\"feature_enabled\":false,\"port\":8080}\n",
+          "sha256": "04766654933a15c696b700b87cbb82e33f27a16912515dad3cc3afb4de7fde0c"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/service.json",
+          "text": "{\"feature_enabled\":true}\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/service.json",
+          "text": "{\"feature_enabled\":true,\"port\":8080}\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "config/service.json": {
+          "encoding": "utf-8",
+          "text": "{\"feature_enabled\":true,\"port\":8080}\n",
+          "sha256": "dc40e98c3ae21546a0c3e3fae6a2a42dbc8fcc03dcf8f969401900ffc6385e20"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which retained versions contain a port field, in observed order?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does the retained record capture a configuration with port omitted?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these source observations establish that a missing port caused an application outage?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-5395516560fe",
+      "pair_id": "pair-05",
+      "producer_variant": "b",
+      "initial_files": {
+        "config/service.json": {
+          "encoding": "utf-8",
+          "text": "{\"feature_enabled\":false,\"port\":8080}\n",
+          "sha256": "04766654933a15c696b700b87cbb82e33f27a16912515dad3cc3afb4de7fde0c"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/service.json",
+          "text": "{\"feature_enabled\":true,\"port\":8080}\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-05",
+          "logical_order": 5
+        }
+      ],
+      "final_files": {
+        "config/service.json": {
+          "encoding": "utf-8",
+          "text": "{\"feature_enabled\":true,\"port\":8080}\n",
+          "sha256": "dc40e98c3ae21546a0c3e3fae6a2a42dbc8fcc03dcf8f969401900ffc6385e20"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which retained versions contain a port field, in observed order?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does the retained record capture a configuration with port omitted?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these source observations establish that a missing port caused an application outage?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-2adb10879ca0",
+      "pair_id": "pair-06",
+      "producer_variant": "a",
+      "initial_files": {
+        "config/windows-format.txt": {
+          "encoding": "utf-8",
+          "text": "\ufeffname=sample\r\nstate=ready\r\n",
+          "sha256": "7c4f0639103b71070f8a918bc03235e066917e383ad5540185ec3c893ab18d0d"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/windows-format.txt",
+          "text": "name=sample\nstate=ready\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/windows-format.txt",
+          "text": "\ufeffname=sample\r\nstate=ready\r\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "config/windows-format.txt": {
+          "encoding": "utf-8",
+          "text": "\ufeffname=sample\r\nstate=ready\r\n",
+          "sha256": "7c4f0639103b71070f8a918bc03235e066917e383ad5540185ec3c893ab18d0d"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "What BOM/newline formats do retained exact contents support, in observed order? If the recorder normalizes them, disclose that limit."
+        },
+        {
+          "question_id": "q3",
+          "text": "Which SHA-256 identifies the exact intermediate observed file bytes? If exact bytes are unavailable, say so."
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these observations establish which editor changed the newline format?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-5c3a8d77106f",
+      "pair_id": "pair-06",
+      "producer_variant": "b",
+      "initial_files": {
+        "config/windows-format.txt": {
+          "encoding": "utf-8",
+          "text": "\ufeffname=sample\r\nstate=ready\r\n",
+          "sha256": "7c4f0639103b71070f8a918bc03235e066917e383ad5540185ec3c893ab18d0d"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/windows-format.txt",
+          "text": "name=sample\r\nstate=ready\r\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "config/windows-format.txt",
+          "text": "\ufeffname=sample\r\nstate=ready\r\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "config/windows-format.txt": {
+          "encoding": "utf-8",
+          "text": "\ufeffname=sample\r\nstate=ready\r\n",
+          "sha256": "7c4f0639103b71070f8a918bc03235e066917e383ad5540185ec3c893ab18d0d"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "What BOM/newline formats do retained exact contents support, in observed order? If the recorder normalizes them, disclose that limit."
+        },
+        {
+          "question_id": "q3",
+          "text": "Which SHA-256 identifies the exact intermediate observed file bytes? If exact bytes are unavailable, say so."
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these observations establish which editor changed the newline format?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-961c322329a2",
+      "pair_id": "pair-07",
+      "producer_variant": "a",
+      "initial_files": {
+        "draft/guide.txt": {
+          "encoding": "utf-8",
+          "text": "Guide for an imaginary demo.\n",
+          "sha256": "2a81338f0e45535c6d5254800fb4fe78831f3fec4ef5b9f337a5c970deece6bf"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_mutation_group",
+          "mutations": [
+            {
+              "kind": "outside_write",
+              "path": "docs/guide.txt",
+              "text": "Guide for an imaginary demo.\n"
+            },
+            {
+              "kind": "outside_delete",
+              "path": "draft/guide.txt"
+            }
+          ],
+          "constraint": "Complete all mutations inside one documented stability interval; do not insert a stable checkpoint inside the group.",
+          "not_a_filesystem_transaction": true,
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-05",
+          "logical_order": 5
+        }
+      ],
+      "final_files": {
+        "docs/guide.txt": {
+          "encoding": "utf-8",
+          "text": "Guide for an imaginary demo.\n",
+          "sha256": "2a81338f0e45535c6d5254800fb4fe78831f3fec4ef5b9f337a5c970deece6bf"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct path-presence states are captured for the draft and docs guides?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does retained stable evidence contain both guide paths simultaneously? This asks about captured evidence, not every filesystem instant."
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these observations prove a semantic rename instead of an unseen copy-and-delete?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-9f3ea17ee3c3",
+      "pair_id": "pair-07",
+      "producer_variant": "b",
+      "initial_files": {
+        "draft/guide.txt": {
+          "encoding": "utf-8",
+          "text": "Guide for an imaginary demo.\n",
+          "sha256": "2a81338f0e45535c6d5254800fb4fe78831f3fec4ef5b9f337a5c970deece6bf"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "docs/guide.txt",
+          "text": "Guide for an imaginary demo.\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_delete",
+          "path": "draft/guide.txt",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "docs/guide.txt": {
+          "encoding": "utf-8",
+          "text": "Guide for an imaginary demo.\n",
+          "sha256": "2a81338f0e45535c6d5254800fb4fe78831f3fec4ef5b9f337a5c970deece6bf"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct path-presence states are captured for the draft and docs guides?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does retained stable evidence contain both guide paths simultaneously? This asks about captured evidence, not every filesystem instant."
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these observations prove a semantic rename instead of an unseen copy-and-delete?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-3e4d23a05ade",
+      "pair_id": "pair-08",
+      "producer_variant": "a",
+      "initial_files": {
+        "source/counter.txt": {
+          "encoding": "utf-8",
+          "text": "counter=0\n",
+          "sha256": "dedc52ab56ee3e3165cfab7fedb3c8d384ef00f20b51a7afccf6e8861d9e0125"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/counter.txt",
+          "text": "counter=1\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "before_restart",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-06",
+          "logical_order": 6
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "after_restart",
+          "operation_id": "op-07",
+          "logical_order": 7
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/counter.txt",
+          "text": "counter=2\n",
+          "operation_id": "op-08",
+          "logical_order": 8
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-09",
+          "logical_order": 9
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-10",
+          "logical_order": 10
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-11",
+          "logical_order": 11
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "reader_reopen",
+          "operation_id": "op-12",
+          "logical_order": 12
+        }
+      ],
+      "final_files": {
+        "source/counter.txt": {
+          "encoding": "utf-8",
+          "text": "counter=2\n",
+          "sha256": "30f24ed3705c7d493d88d1947e9ed8ed7b274c8bde468a44eff2c3a154506472"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "What intermediate counter value is supported by persisted evidence before the first restart?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Which distinct counter states remain evidenced after the final reader reopen?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-fca96a116606",
+      "pair_id": "pair-08",
+      "producer_variant": "b",
+      "initial_files": {
+        "source/counter.txt": {
+          "encoding": "utf-8",
+          "text": "counter=0\n",
+          "sha256": "dedc52ab56ee3e3165cfab7fedb3c8d384ef00f20b51a7afccf6e8861d9e0125"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/counter.txt",
+          "text": "counter=9\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "before_restart",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-06",
+          "logical_order": 6
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "after_restart",
+          "operation_id": "op-07",
+          "logical_order": 7
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/counter.txt",
+          "text": "counter=2\n",
+          "operation_id": "op-08",
+          "logical_order": 8
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-09",
+          "logical_order": 9
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-10",
+          "logical_order": 10
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-11",
+          "logical_order": 11
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "reader_reopen",
+          "operation_id": "op-12",
+          "logical_order": 12
+        }
+      ],
+      "final_files": {
+        "source/counter.txt": {
+          "encoding": "utf-8",
+          "text": "counter=2\n",
+          "sha256": "30f24ed3705c7d493d88d1947e9ed8ed7b274c8bde468a44eff2c3a154506472"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "What intermediate counter value is supported by persisted evidence before the first restart?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Which distinct counter states remain evidenced after the final reader reopen?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can these records establish the exact instant of every outside-tool save?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-c3dbe5dc2f5b",
+      "pair_id": "pair-09",
+      "producer_variant": "a",
+      "initial_files": {
+        "source/alert.txt": {
+          "encoding": "utf-8",
+          "text": "alert=off\n",
+          "sha256": "b1556b5b1120cda3474ab87f1d1cc0c054c48d7553db1c11c2d50803a5dd47f2"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/alert.txt",
+          "text": "alert=on\n",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/alert.txt",
+          "text": "alert=off\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-06",
+          "logical_order": 6
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-07",
+          "logical_order": 7
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-08",
+          "logical_order": 8
+        }
+      ],
+      "final_files": {
+        "source/alert.txt": {
+          "encoding": "utf-8",
+          "text": "alert=off\n",
+          "sha256": "b1556b5b1120cda3474ab87f1d1cc0c054c48d7553db1c11c2d50803a5dd47f2"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct alert values are supported by captured stable states?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does any retained stable state contain alert=on?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Does an unchanged state after a stopped-recorder interval prove no edits occurred during that interval?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-439f63da8478",
+      "pair_id": "pair-09",
+      "producer_variant": "b",
+      "initial_files": {
+        "source/alert.txt": {
+          "encoding": "utf-8",
+          "text": "alert=off\n",
+          "sha256": "b1556b5b1120cda3474ab87f1d1cc0c054c48d7553db1c11c2d50803a5dd47f2"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/alert.txt",
+          "text": "alert=on\n",
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "outside_write",
+          "path": "source/alert.txt",
+          "text": "alert=off\n",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-07",
+          "logical_order": 7
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-08",
+          "logical_order": 8
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "reader_reopen",
+          "operation_id": "op-09",
+          "logical_order": 9
+        }
+      ],
+      "final_files": {
+        "source/alert.txt": {
+          "encoding": "utf-8",
+          "text": "alert=off\n",
+          "sha256": "b1556b5b1120cda3474ab87f1d1cc0c054c48d7553db1c11c2d50803a5dd47f2"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct alert values are supported by captured stable states?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does any retained stable state contain alert=on?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Do these stable observations prove the recorder captured every save and every transient state?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-41bf3e232625",
+      "pair_id": "pair-10",
+      "producer_variant": "a",
+      "initial_files": {
+        "source/rapid.txt": {
+          "encoding": "utf-8",
+          "text": "mode=normal\n",
+          "sha256": "ef42ce1c297af00ff95a68bfc75f3b0b1fce46b107c57116ee82a1590844211d"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "outside_mutation_group",
+          "mutations": [
+            {
+              "kind": "outside_write",
+              "path": "source/rapid.txt",
+              "text": "mode=temporary\n"
+            },
+            {
+              "kind": "outside_write",
+              "path": "source/rapid.txt",
+              "text": "mode=normal\n"
+            }
+          ],
+          "constraint": "Complete all mutations inside one documented stability interval; do not insert a stable checkpoint inside the group.",
+          "not_a_filesystem_transaction": true,
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-06",
+          "logical_order": 6
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-07",
+          "logical_order": 7
+        }
+      ],
+      "final_files": {
+        "source/rapid.txt": {
+          "encoding": "utf-8",
+          "text": "mode=normal\n",
+          "sha256": "ef42ce1c297af00ff95a68bfc75f3b0b1fce46b107c57116ee82a1590844211d"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct mode values are supported by the retained stable observations?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does the retained stable record show a temporary mode?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can the supplied observations establish whether a rapid save-and-revert happened while the recorder was stopped?"
+        }
+      ]
+    },
+    {
+      "case_id": "case-f6fefd60c848",
+      "pair_id": "pair-10",
+      "producer_variant": "b",
+      "initial_files": {
+        "source/rapid.txt": {
+          "encoding": "utf-8",
+          "text": "mode=normal\n",
+          "sha256": "ef42ce1c297af00ff95a68bfc75f3b0b1fce46b107c57116ee82a1590844211d"
+        }
+      },
+      "operations": [
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-01",
+          "logical_order": 1
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "baseline",
+          "operation_id": "op-02",
+          "logical_order": 2
+        },
+        {
+          "kind": "stop_recorder",
+          "flush_completed_records": true,
+          "operation_id": "op-03",
+          "logical_order": 3
+        },
+        {
+          "kind": "start_recorder",
+          "pin_project_root": true,
+          "reuse_persisted_store": true,
+          "operation_id": "op-04",
+          "logical_order": 4
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "middle",
+          "operation_id": "op-05",
+          "logical_order": 5
+        },
+        {
+          "kind": "observe_stable",
+          "checkpoint": "final",
+          "operation_id": "op-06",
+          "logical_order": 6
+        }
+      ],
+      "final_files": {
+        "source/rapid.txt": {
+          "encoding": "utf-8",
+          "text": "mode=normal\n",
+          "sha256": "ef42ce1c297af00ff95a68bfc75f3b0b1fce46b107c57116ee82a1590844211d"
+        }
+      },
+      "reader_must_reopen_persisted_store": true,
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "What exact files and contents are present in the final source state?"
+        },
+        {
+          "question_id": "q2",
+          "text": "Which distinct mode values are supported by the retained stable observations?"
+        },
+        {
+          "question_id": "q3",
+          "text": "Does the retained stable record show a temporary mode?"
+        },
+        {
+          "question_id": "q4",
+          "text": "Can the supplied evidence identify the verified human or process behind outside-tool writes?"
+        },
+        {
+          "question_id": "q5",
+          "text": "Can the supplied observations establish whether a rapid save-and-revert happened while the recorder was stopped?"
+        }
+      ]
+    }
+  ]
+}
