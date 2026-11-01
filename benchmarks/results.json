@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "scope": "Eight exposed synthetic fixtures; measured selective-undo objective, not whole-tool quality or model accuracy.",
+  "upstream": {
+    "repository": "https://github.com/arpagon/pi-rewind",
+    "commit": "91611ad87992fb7b635a41ba68f67916ff6e6ae3",
+    "adapter": "unchanged src/core.ts imported by Node; recovery checkpoint before restore"
+  },
+  "fixtures": [
+    {
+      "id": "simple_edit",
+      "description": "Undo a recorded edit with no later changes.",
+      "expected_status": "ready"
+    },
+    {
+      "id": "later_human_same_file",
+      "description": "Undo agent A's title while preserving the human's later footer edit.",
+      "expected_status": "ready"
+    },
+    {
+      "id": "later_agent_same_file",
+      "description": "Undo agent A while preserving agent B's later disjoint edit.",
+      "expected_status": "ready"
+    },
+    {
+      "id": "overlapping_human_edit",
+      "description": "Refuse an undo when a human overwrote the same line.",
+      "expected_status": "conflict"
+    },
+    {
+      "id": "created_file_later_modified",
+      "description": "Refuse deleting an agent-created file that a human has since modified.",
+      "expected_status": "conflict"
+    },
+    {
+      "id": "unrelated_new_human_file",
+      "description": "Undo agent A while leaving a later unrelated untracked human file alone.",
+      "expected_status": "ready"
+    },
+    {
+      "id": "deleted_file_human_recreated",
+      "description": "Refuse restoring a deleted file over a human-created replacement.",
+      "expected_status": "conflict"
+    },
+    {
+      "id": "no_git_project",
+      "description": "Perform a simple selective undo outside any Git repository.",
+      "expected_status": "ready"
+    }
+  ],
+  "pi_rewind": [
+    {
+      "id": "simple_edit",
+      "status": "restored_checkpoint",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "later_human_same_file",
+      "status": "restored_checkpoint",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "later_agent_same_file",
+      "status": "restored_checkpoint",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "overlapping_human_edit",
+      "status": "restored_checkpoint",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "created_file_later_modified",
+      "status": "restored_checkpoint",
+      "actual": {
+        "README.txt": "initial project\n",
+        "new.txt": null
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "unrelated_new_human_file",
+      "status": "restored_checkpoint",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n",
+        "notes.txt": null
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "deleted_file_human_recreated",
+      "status": "restored_checkpoint",
+      "actual": {
+        "app.txt": "original content\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "recovery_checkpoint_saved": true
+    },
+    {
+      "id": "no_git_project",
+      "status": "unsupported_no_git",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "selective_goal_met": false
+    }
+  ],
+  "undoweave": [
+    {
+      "id": "simple_edit",
+      "status": "ready",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "later_human_same_file",
+      "status": "ready",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=human\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "later_agent_same_file",
+      "status": "ready",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=agent-b\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "overlapping_human_edit",
+      "status": "conflict",
+      "actual": {
+        "app.txt": "title=human\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "created_file_later_modified",
+      "status": "conflict",
+      "actual": {
+        "README.txt": "initial project\n",
+        "new.txt": "agent-created\nhuman-added\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "unrelated_new_human_file",
+      "status": "ready",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n",
+        "notes.txt": "human work after the checkpoint\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "deleted_file_human_recreated",
+      "status": "conflict",
+      "actual": {
+        "app.txt": "human replacement\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": true,
+      "git_index_unchanged": true
+    },
+    {
+      "id": "no_git_project",
+      "status": "ready",
+      "actual": {
+        "app.txt": "original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true
+    }
+  ],
+  "undoweave_source_sha256": {
+    "engine.py": "4db3ded0b925fbe13d1bfb7e7b6b59c5ec425faf39eae611da2782598f6f044f",
+    "merge.py": "32b85b05510c292a25bca4ee151e9861f3b986c120f7867d0c601410efd13e78"
+  },
+  "aider": [
+    {
+      "id": "simple_edit",
+      "status": "undone_commit",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "messages": []
+    },
+    {
+      "id": "later_human_same_file",
+      "status": "refused",
+      "actual": {
+        "app.txt": "title=agent-a\nbody=original\nfooter=human\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": false,
+      "messages": [
+        "The file app.txt has uncommitted changes. Please stash them before undoing."
+      ]
+    },
+    {
+      "id": "later_agent_same_file",
+      "status": "refused",
+      "actual": {
+        "app.txt": "title=agent-a\nbody=original\nfooter=agent-b\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": false,
+      "messages": [
+        "The file app.txt has uncommitted changes. Please stash them before undoing."
+      ]
+    },
+    {
+      "id": "overlapping_human_edit",
+      "status": "refused",
+      "actual": {
+        "app.txt": "title=human\nbody=original\nfooter=original\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": true,
+      "messages": [
+        "The file app.txt has uncommitted changes. Please stash them before undoing."
+      ]
+    },
+    {
+      "id": "created_file_later_modified",
+      "status": "refused",
+      "actual": {
+        "README.txt": "initial project\n",
+        "new.txt": "agent-created\nhuman-added\n"
+      },
+      "project_unchanged": true,
+      "selective_goal_met": true,
+      "messages": [
+        "The file new.txt has uncommitted changes. Please stash them before undoing."
+      ]
+    },
+    {
+      "id": "unrelated_new_human_file",
+      "status": "undone_commit",
+      "actual": {
+        "app.txt": "title=original\nbody=original\nfooter=original\n",
+        "notes.txt": "human work after the checkpoint\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": true,
+      "messages": []
+    },
+    {
+      "id": "deleted_file_human_recreated",
+      "status": "undone_commit",
+      "actual": {
+        "app.txt": "original content\n"
+      },
+      "project_unchanged": false,
+      "selective_goal_met": false,
+      "messages": []
+    },
+    {
+      "id": "no_git_project",
+      "status": "unsupported_no_git",
+      "messages": [
+        "No git repository found."
+      ],
+      "selective_goal_met": false
+    }
+  ],
+  "aider_upstream": {
+    "repository": "https://github.com/Aider-AI/aider",
+    "commit": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+    "commands_py_git_blob": "3881403c5c10212119e77a3ab0d3e092830054e6",
+    "adapter": "Exact raw_cmd_undo AST method; real GitPython repos, minimal I/O/session adapter; full Aider CLI not tested",
+    "GitPython": "3.1.46"
+  }
+}

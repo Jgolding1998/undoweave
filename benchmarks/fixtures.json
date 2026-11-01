@@ -1,0 +1,75 @@
+[
+  {
+    "id": "simple_edit",
+    "description": "Undo a recorded edit with no later changes.",
+    "initial": {"app.txt": "title=original\nbody=original\nfooter=original\n"},
+    "edit": {"path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=original\n"},
+    "later": [],
+    "expected_status": "ready",
+    "expected": {"app.txt": "title=original\nbody=original\nfooter=original\n"}
+  },
+  {
+    "id": "later_human_same_file",
+    "description": "Undo agent A's title while preserving the human's later footer edit.",
+    "initial": {"app.txt": "title=original\nbody=original\nfooter=original\n"},
+    "edit": {"path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=original\n"},
+    "later": [{"actor": "human", "path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=human\n"}],
+    "expected_status": "ready",
+    "expected": {"app.txt": "title=original\nbody=original\nfooter=human\n"}
+  },
+  {
+    "id": "later_agent_same_file",
+    "description": "Undo agent A while preserving agent B's later disjoint edit.",
+    "initial": {"app.txt": "title=original\nbody=original\nfooter=original\n"},
+    "edit": {"path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=original\n"},
+    "later": [{"actor": "agent-b", "path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=agent-b\n"}],
+    "expected_status": "ready",
+    "expected": {"app.txt": "title=original\nbody=original\nfooter=agent-b\n"}
+  },
+  {
+    "id": "overlapping_human_edit",
+    "description": "Refuse an undo when a human overwrote the same line.",
+    "initial": {"app.txt": "title=original\nbody=original\nfooter=original\n"},
+    "edit": {"path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=original\n"},
+    "later": [{"actor": "human", "path": "app.txt", "content": "title=human\nbody=original\nfooter=original\n"}],
+    "expected_status": "conflict",
+    "expected": {"app.txt": "title=human\nbody=original\nfooter=original\n"}
+  },
+  {
+    "id": "created_file_later_modified",
+    "description": "Refuse deleting an agent-created file that a human has since modified.",
+    "initial": {"README.txt": "initial project\n"},
+    "edit": {"path": "new.txt", "content": "agent-created\n"},
+    "later": [{"actor": "human", "path": "new.txt", "content": "agent-created\nhuman-added\n"}],
+    "expected_status": "conflict",
+    "expected": {"README.txt": "initial project\n", "new.txt": "agent-created\nhuman-added\n"}
+  },
+  {
+    "id": "unrelated_new_human_file",
+    "description": "Undo agent A while leaving a later unrelated untracked human file alone.",
+    "initial": {"app.txt": "title=original\nbody=original\nfooter=original\n"},
+    "edit": {"path": "app.txt", "content": "title=agent-a\nbody=original\nfooter=original\n"},
+    "later": [{"actor": "human", "path": "notes.txt", "content": "human work after the checkpoint\n"}],
+    "expected_status": "ready",
+    "expected": {"app.txt": "title=original\nbody=original\nfooter=original\n", "notes.txt": "human work after the checkpoint\n"}
+  },
+  {
+    "id": "deleted_file_human_recreated",
+    "description": "Refuse restoring a deleted file over a human-created replacement.",
+    "initial": {"app.txt": "original content\n"},
+    "edit": {"path": "app.txt", "content": null},
+    "later": [{"actor": "human", "path": "app.txt", "content": "human replacement\n"}],
+    "expected_status": "conflict",
+    "expected": {"app.txt": "human replacement\n"}
+  },
+  {
+    "id": "no_git_project",
+    "description": "Perform a simple selective undo outside any Git repository.",
+    "no_git": true,
+    "initial": {"app.txt": "original\n"},
+    "edit": {"path": "app.txt", "content": "agent-a\n"},
+    "later": [],
+    "expected_status": "ready",
+    "expected": {"app.txt": "original\n"}
+  }
+]

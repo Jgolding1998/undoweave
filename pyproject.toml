@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "undoweave"
+version = "0.1.0"
+description = "Undo a recorded agent edit while preserving separate later work."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "Justin Golding"}]
+keywords = ["mcp", "agents", "undo", "developer-tools"]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp==2.3.0"]
+dev = ["build==1.6.1", "hypothesis==6.170.14", "pip-audit==2.10.1"]
+
+[project.scripts]
+undoweave = "undoweave.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Jgolding1998/undoweave"
+Issues = "https://github.com/Jgolding1998/undoweave/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
