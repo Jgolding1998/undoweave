@@ -37,10 +37,46 @@ async def check(root):
         assert target.read_bytes() == b"agent=old\nseparator=keep\nhuman=kept\n"
     config = subprocess.run([sys.executable, "-I", "-m", "undoweave", "--root", str(project), "config"], check=True, capture_output=True, encoding="utf-8", timeout=30)
     assert json.loads(config.stdout)["mcpServers"]["undoweave"]["command"] == sys.executable
-    return {"ok": True, "version": undoweave.__version__, "installed_package": str(Path(undoweave.__file__).resolve()), "mcp_tools": len(tools), "human_edit_preserved": True, "generated_config_valid": True}
+
+    # Exercise the exact generated setup connection, from a nested project cwd.
+    selected = root / 'setup project'
+    (selected / 'src').mkdir(parents=True)
+    (selected / '.git').mkdir()
+    outside = selected / 'src/app.py'
+    outside.write_bytes(b'value = 1\n')
+    (selected / 'src/undoweave.py').write_text('raise RuntimeError("project import shadow")')
+    selected_state = root / 'setup state'
+    before_names = sorted(p.relative_to(selected).as_posix() for p in selected.rglob('*'))
+    setup = subprocess.run([sys.executable, '-I', '-m', 'undoweave', '--state-dir', str(selected_state),
+        'setup', '--interval', '.25'], cwd=selected / 'src', check=True, capture_output=True,
+        encoding='utf-8', timeout=30)
+    plan = json.loads(setup.stdout)
+    assert plan['root'] == str(selected) and plan['scopes'] == ['src']
+    assert not plan['recording_started'] and not plan['configuration_changed']
+    assert not selected_state.exists() and not (selected / '.undoweave-id').exists()
+    assert before_names == sorted(p.relative_to(selected).as_posix() for p in selected.rglob('*'))
+    entry = plan['mcpServers'][plan['server_name']]
+    assert entry['command'] == sys.executable and entry['args'][:3] == ['-I', '-m', 'undoweave']
+    async with Client(StdioServerParameters(command=entry['command'], args=entry['args'], cwd=selected / 'src')) as client:
+        status = (await client.call_tool('workspace_status')).structured_content
+        assert status['root'] == str(selected) and status['observation']['scopes'] == ['src']
+        assert not (await client.call_tool('list_changes')).structured_content['changes']
+        outside.write_bytes(b'value = 2\n')
+        deadline = asyncio.get_running_loop().time() + 15
+        while True:
+            rows = (await client.call_tool('list_changes')).structured_content['changes']
+            if rows:
+                break
+            assert asyncio.get_running_loop().time() < deadline, 'Generated setup recorder did not retain the outside save'
+            await asyncio.sleep(.1)
+        assert len(rows) == 1 and rows[0]['path'] == 'src/app.py' and rows[0]['actor'] == 'unknown'
+        evidence = (await client.call_tool('inspect_change', {'change_id': rows[0]['id']})).structured_content
+        assert '-value = 1' in evidence['diff'] and '+value = 2' in evidence['diff']
+        assert not evidence['undo_supported'] and outside.read_bytes() == b'value = 2\n'
+    return {"ok": True, "version": undoweave.__version__, "installed_package": str(Path(undoweave.__file__).resolve()), "mcp_tools": len(tools), "human_edit_preserved": True, "generated_config_valid": True, "project_setup_valid": True, "generated_setup_connection_observes_outside_save": True}
 
 
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as temporary:
-        result = asyncio.run(asyncio.wait_for(check(Path(temporary).resolve()), timeout=60))
+        result = asyncio.run(asyncio.wait_for(check(Path(temporary).resolve()), timeout=90))
     print(json.dumps(result, indent=2))

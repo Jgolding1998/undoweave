@@ -21,7 +21,7 @@ First initialization creates a small, source-free `.undoweave-id` marker in the 
 Python 3.11+ and Git are required for this install command. No AI subscription, API key, or paid service is needed for the demo.
 
 ```sh
-python -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.3.0"
+python -I -m pip install "undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v0.4.0"
 undoweave demo
 undoweave demo --recording
 ```
@@ -31,9 +31,9 @@ Both demos use disposable directories. The first checks selective undo and prese
 From a source checkout:
 
 ```sh
-python -m venv .venv
+python -I -m venv .venv
 # Activate .venv, then:
-python -m pip install ".[mcp]"
+python -I -m pip install ".[mcp]"
 python -I -m undoweave demo
 ```
 
@@ -41,13 +41,52 @@ There is no PyPI release yet. Use the versioned Git install above or install thi
 
 ## Use it with an agent
 
+Open a terminal in your project folder and run:
+
 ```sh
-undoweave --root /absolute/path/to/your/project config --watch src --watch tests
+undoweave setup --client claude      # or --client codex; leave it out for JSON
 ```
 
-Choose existing project paths you want recorded. This command prints configuration only, with those paths pinned at startup. It does not change client settings or start recording. Use `config --client claude --watch src` for Claude Code instructions or `config --client codex --watch src` for Codex commands and TOML. Restart or reconnect the client, then ask it to read the `safe_editing` prompt or `undoweave://instructions` resource. Omit `--watch` for tool edits only.
+Setup prints what it chose before anything else:
 
-Give the agent these instructions:
+```text
+Project: /home/me/code/shop (git_marker: .git)
+Recording paths: manage.py, shop_core, tests
+Connection name: undoweave-shop-537c26f5
+Tools can read/edit supported files inside this project; only the listed paths are observed.
+Nothing has been connected or recorded yet.
+```
+
+followed by what to apply for your client. Setup reads only names and file
+types plus the project's `.gitignore`, never file contents, and changes
+nothing. Once connected, the tools can read and edit supported files anywhere
+in the project; the recording paths only decide which outside saves are
+observed. Review both, apply the printed connection, then restart or reconnect
+your client.
+
+- Started in a subfolder, setup uses the nearest project file (such as
+  `package.json` or `pyproject.toml`) or Git folder. In a monorepo that can be one package. To choose,
+  run `undoweave --root /absolute/project setup`.
+- To record only certain paths, add `--watch src --watch tests`.
+- Each project gets its own connection name, so connecting a second project
+  leaves the first one in place. `--name` picks a name yourself.
+- If setup cannot find a project or code paths, it stops and asks you to
+  choose. It never picks your home folder, a drive or a broad folder.
+
+`setup` is new in 0.4.0. The 0.3 release has only `config`, which still
+works for explicit paths: `undoweave --root /absolute/project config --watch src`
+(without `--watch` for tool edits only).
+
+An agent can do this for you. Optionally add the
+[UndoWeave skill](docs/INSTALL.md#4-optional-add-the-undoweave-skill) and ask:
+
+> Set up UndoWeave for this project. Show me the folders it picked before
+> connecting.
+
+The skill is instructions only. The server, once connected, provides the tools.
+
+Without the skill, ask the agent to read the `safe_editing` prompt or the
+`undoweave://instructions` resource, or give it these instructions:
 
 > Use UndoWeave's read_file and write_file tools for edits I want recorded. Use a fixed actor name. Read first and pass the returned expected hash. To undo an edit, show me preview_undo's diff and get my approval before apply_undo. If it conflicts, stop and explain. Do not bypass a refusal with another editor.
 
@@ -131,7 +170,7 @@ Read the [threat model and recovery notes](SECURITY.md) before using it on impor
 ## Verify it
 
 ```sh
-python -m pip install -c constraints.txt ".[mcp,dev]"
+python -I -m pip install -c constraints.txt ".[mcp,dev]"
 python -m unittest discover -s tests -v
 python -I -m undoweave demo
 ```

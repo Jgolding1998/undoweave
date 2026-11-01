@@ -1,6 +1,6 @@
 """Command-line interface for UndoWeave.
 
-Every command except ``history --format html``, ``watch`` and ``config --client claude|codex``
+Every command except ``history --format html``, ``watch`` and ``config/setup --client claude|codex``
 prints one JSON document. Successful results go to stdout; errors go to stderr as
 ``{"ok": false, "error": {"code": ..., "message": ...}}`` with a non-zero exit
 status. No command runs shell commands, executes file content, or changes any
@@ -13,10 +13,13 @@ Exit codes: 0 success, 1 UndoWeave refused/failed, 2 usage error,
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib
+import io
 import json
 import math
 import os
+import re
 import shlex
 import stat
 import sys
@@ -25,12 +28,14 @@ import threading
 from pathlib import Path
 from typing import Any, Sequence
 
+from . import __version__
+
 MCP_VERSION = "2.3.0"
 MCP_MISSING_MESSAGE = (
     "The MCP server needs the optional 'mcp' dependency (mcp=={v}). Install it with:\n"
-    "    python -m pip install \".[mcp]\"\n"
-    "from an UndoWeave checkout, or see docs/INSTALL.md for the pinned release install."
-).format(v=MCP_VERSION)
+    "    python -I -m pip install \"undoweave[mcp] @ git+https://github.com/Jgolding1998/undoweave.git@v{release}\"\n"
+    "Use the same dedicated interpreter as this server; see docs/INSTALL.md."
+).format(v=MCP_VERSION, release=__version__)
 
 
 def load_core() -> tuple[type, type]:
@@ -124,6 +129,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--recording", action="store_true", help="demonstrate outside-tool recording and persisted evidence")
 
     p = sub.add_parser(
+        "setup",
+        help="suggest this project's code paths and print a connection plan; changes nothing",
+    )
+    p.add_argument("--client", choices=("generic", "claude", "codex"), default="generic")
+    p.add_argument("--name", help="server entry name (default: stable project-specific name)")
+    _add_recording_options(p)
+
+    p = sub.add_parser(
         "config",
         help="print MCP client configuration for this interpreter (changes no configuration)",
     )
@@ -131,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--client", choices=("generic", "claude", "codex"), default="generic",
         help="generic: mcpServers JSON (default); claude/codex: copy-paste instructions",
     )
+    p.add_argument("--name", default="undoweave", help="server entry name (default: undoweave)")
     _add_recording_options(p)
     return parser
 
@@ -456,7 +470,8 @@ def _server_argv(args: argparse.Namespace) -> list[str]:
     argv += ["serve"]
     scopes = _recording_scopes(args)
     for scope in scopes:
-        argv += ["--watch", scope]
+        # A leading hyphen is a literal filename, not another server option.
+        argv += ["--watch=" + scope] if scope.startswith('-') else ["--watch", scope]
     if scopes:
         argv += ["--interval", str(args.interval)]
     return argv
@@ -504,49 +519,121 @@ def _shell_join(program: str, args: list[str]) -> tuple[str, str]:
 
 
 def _toml_str(value: str) -> str:
-    return json.dumps(value)  # JSON string escapes are valid TOML basic-string escapes
+    # JSON surrogate-pair escapes for non-BMP text are invalid TOML. Emit TOML's
+    # single eight-digit escape while preserving literal backslash-u sequences.
+    if any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+        raise ValueError('unpaired Unicode surrogates cannot be represented in TOML')
+    return '"' + ''.join(('\\U' + format(ord(char), '08x')) if ord(char) > 0xFFFF
+                         else json.dumps(char)[1:-1] for char in value) + '"'
+
+
+def _write_human(text):
+    try:
+        text.encode(getattr(sys.stdout, 'encoding', None) or 'utf-8')
+    except UnicodeError:
+        raise UsageError('This output encoding cannot represent the project path. Use generic JSON setup/config instead.', 'unsupported_output_encoding') from None
+    sys.stdout.write(text)
+    sys.stdout.flush()
 
 
 def _config(args: argparse.Namespace) -> None:
     """Print configuration only. Never writes any client configuration."""
     argv = _server_argv(args)
     command, server_args = argv[0], argv[1:]
+    name = _server_name(getattr(args, "name", "undoweave"))
     try:
         importlib.import_module("mcp.server.mcpserver")
     except ImportError:
         print("undoweave: warning: this interpreter cannot run 'serve' yet.\n" + MCP_MISSING_MESSAGE, file=sys.stderr)
     if args.client == "generic":
-        _emit({"mcpServers": {"undoweave": {"command": command, "args": server_args}}})
+        _emit({"mcpServers": {name: {"command": command, "args": server_args}}})
         return
     note = (
-        "UndoWeave did not change any configuration. Review the command, then run it yourself.\n"
+        "UndoWeave did not change any configuration. Review these details before applying the connection.\n"
         f"The interpreter above must have 'undoweave[mcp]' installed (mcp=={MCP_VERSION})."
     )
     if args.client == "claude":
         shell, line = _shell_join(
-            "claude", ["mcp", "add", "--transport", "stdio", "--scope", "project", "undoweave", "--", *argv]
+            "claude", ["mcp", "add", "--transport", "stdio", "--scope", "project", name, "--", *argv]
         )
         text = (
             "# Claude Code: run from inside the project. --scope project writes .mcp.json in the\n"
-            "# current directory (review and commit it); it does not touch user-level config.\n"
+            "# current directory (review private paths before sharing); it does not touch user-level config.\n"
             f"# Quoted for {shell}; do not paste into a different shell (for example cmd.exe).\n"
-            f"{line}\n\n# Then check it with:\nclaude mcp list\n\n{note}\n"
+            + ("Set-Location -LiteralPath " + _powershell_quote(str(args.root)) if os.name == 'nt' else 'cd ' + shlex.quote(str(args.root)))
+            + f"\n{line}\n\n# Reconnect Claude Code and verify this connection's workspace_status.\n"
+            "# Starting the configured server also starts its selected recording paths.\n\n"
+            + note + '\n'
         )
     else:
-        shell, line = _shell_join("codex", ["mcp", "add", "undoweave", "--", *argv])
         toml = (
-            "[mcp_servers.undoweave]\n"
+            f"[mcp_servers.{name}]\n"
             f"command = {_toml_str(command)}\n"
             "args = [" + ", ".join(_toml_str(a) for a in server_args) + "]\n"
         )
-        text = (
-            f"# Codex: either run this command (quoted for {shell}; do not paste into another shell):\n"
-            f"{line}\n\n"
-            "# or add this table to ~/.codex/config.toml:\n"
-            f"{toml}\n{note}\n"
-        )
-    sys.stdout.write(text)
-    sys.stdout.flush()
+        if getattr(args, 'project_local', False):
+            text = (
+                '# Codex: merge this table into the selected project configuration:\n'
+                '# ' + str(args.root / '.codex' / 'config.toml') + '\n'
+                '# Trusted projects only. Keep all other settings and connections.\n'
+                + toml + '\n# Reconnect and check this connection\'s workspace_status.\n'
+                '# Starting the configured server also starts its selected recording paths.\n\n'
+                + note + '\n'
+            )
+        else:
+            shell, line = _shell_join("codex", ["mcp", "add", name, "--", *argv])
+            text = (
+                f"# Codex: either run this command (quoted for {shell}; do not paste into another shell):\n"
+                f"{line}\n\n"
+                "# or add this table to ~/.codex/config.toml:\n"
+                f"{toml}\n"
+                '# This is a user-wide connection. When enabled in another project, it still\n'
+                '# points at this pinned root; any configured recording can start there.\n'
+                f"{note}\n"
+            )
+    _write_human(text)
+
+
+def _server_name(name):
+    if not isinstance(name, str) or not re.fullmatch('[a-z0-9][a-z0-9_-]{0,63}', name):
+        raise UsageError('Use a server name with 1-64 lowercase letters, numbers, hyphens or underscores.', 'invalid_server_name')
+    return name
+
+
+def _setup(args):
+    from .onboarding import plan_setup, project_server_name
+    from .engine import _check_chain
+    _recording_scopes(args)  # Validate options even when auto-discovery supplies scopes.
+    plan = plan_setup(args.root, args.watch)
+    configured = argparse.Namespace(**vars(args))
+    configured.root = Path(plan['root'])
+    configured.project_local = True
+    configured.watch = plan['scopes']
+    configured.name = _server_name(args.name or project_server_name(configured.root))
+    if configured.state_dir is not None:
+        _check_chain(configured.state_dir)
+        state = configured.state_dir.resolve()
+        if state == configured.root or state.is_relative_to(configured.root):
+            raise UsageError('The source journal must be outside the project.', 'unsafe_state')
+    argv = _server_argv(configured)
+    if args.client == 'generic':
+        _emit({'ok': True, **plan, 'server_name': configured.name,
+               'mcpServers': {configured.name: {'command': argv[0], 'args': argv[1:]}},
+               'next_steps': ['Review the selected project and recording paths.',
+                              'Preserve existing client entries when adding this connection.',
+                              'Reconnect the MCP client, then check workspace_status for this root.']})
+    else:
+        basis = plan['root_detection'] + (': ' + plan['root_marker'] if plan['root_marker'] else '')
+        header = ('Project: ' + plan['root'] + ' (' + basis + ')\n'
+                  'Recording paths: ' + ', '.join(plan['scopes']) + '\n'
+                  'Connection name: ' + configured.name + '\n'
+                  'Tools can read/edit supported files inside this project; only the listed paths are observed.\n'
+                  'Nothing has been connected or recorded yet.\n' + plan['privacy_note'] + '\n'
+                  'Keep existing connections. Apply the project connection, then reconnect.\n\n')
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            _config_or_usage_error(configured)
+        _write_human(header + output.getvalue())
 
 
 def _config_or_usage_error(args: argparse.Namespace) -> None:
@@ -577,6 +664,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "config":
             _config_or_usage_error(args)
+            return 0
+        if args.command == "setup":
+            _setup(args)
             return 0
         if args.command == "adopt-legacy":
             if args.root is None:

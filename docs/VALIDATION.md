@@ -2,6 +2,36 @@
 
 This is an early implementation, not a formal verification or a claim that no data loss is possible. All test edits and external comparisons used disposable projects. Mechanical tests and benchmarks call no model or API. The separate reader exercise used the existing signed-in Claude Code installation.
 
+## Version 0.4 project setup checks on 2026-11-01 UTC
+
+The local suite ran 275 tests, passing with nine expected platform/privilege
+skips. Twenty-four setup cases cover project/subproject detection, ordinary code
+and custom Python packages, read-only planning, no broad-root fallback, bounded
+enumeration, ignore handling, links/hardlinks and literal generated arguments.
+The final missing-SDK diagnostic received an additional focused check after its
+install guidance was changed to the isolated pinned release command.
+
+An independent review reproduced an unsupported nested marker being skipped in
+favor of a larger parent project. It now refuses before ascending. A real
+metadata-only trial also exposed omitted Python package directories; package
+markers now identify those without reading or importing their bodies. Both
+negative controls and maintained regressions were retained.
+
+A fresh isolated wheel installation verified all nine modules against the
+reviewed source and passed 82 runtime assertions. Its actual generated setup
+connection launched over MCP, observed an ordinary synthetic outside save,
+retained inspectable evidence and shut down cleanly. Planning itself created no
+state/configuration or source change. The installed public recording regression
+still retrieves all 29 stable transitions across 20 cases; those capture counts
+are separate from setup tests and the older reader diagnostic.
+
+Harmless `pip.py`/`venv.py` shadow modules proved the installer isolation change:
+non-isolated negative controls reached the fake module, while the documented
+isolated commands reached the installed tools without doing an install. Native
+PowerShell 5.1/7 and POSIX-shell CI checks exercise literal project switching.
+TOML checks preserve emoji paths and literal escape sequences. These are small
+synthetic setup checks, not proof of every client, filesystem or user workflow.
+
 ## Version 0.3 recording checks on 2026-11-01 UTC
 
 Local Windows testing ran 251 tests with eight expected platform/privilege skips.

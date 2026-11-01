@@ -6,7 +6,36 @@ when the server starts; no tool call can change them.
 
 Install first: [INSTALL.md](INSTALL.md).
 
-## Easiest: let UndoWeave print your configuration
+## Easiest: run `setup` from your project
+
+`setup` is new in 0.4.0; on 0.3 use `config` below. From a terminal inside
+the project, run it with the interpreter you installed into:
+
+```sh
+ABS_PYTHON -I -m undoweave setup                    # JSON: plan plus {"mcpServers": ...}
+ABS_PYTHON -I -m undoweave setup --client claude    # plan, then cd + a Claude Code command
+ABS_PYTHON -I -m undoweave setup --client codex     # plan, then a table for the project's .codex/config.toml
+```
+
+It finds the nearest project (or uses `--root ABS_PROJECT` placed before
+`setup`), suggests top-level source folders and code files to record, and
+names the entry `undoweave-<folder>-<8 characters>` so several projects can
+be connected side by side. `--watch PATH` after `setup` records exactly the
+paths you name; `--name NAME` chooses the entry name. Once connected, the
+tools can read and edit supported files anywhere in the project; the
+recording paths only decide which outside saves are observed. When it cannot decide it
+refuses with `setup_project_required`, `setup_scope_required`, `setup_limit`
+or `setup_scope_ignored` instead of picking a broad folder. Like `config`, it
+only prints: nothing is recorded and no client setting changes until you apply
+the output and reconnect. Details: [INSTALL.md](INSTALL.md#3-pick-the-project-and-connect-your-agent).
+
+`workspace_status` reports the connected root and recording paths but not the
+entry name; check the name in your client's configuration.
+
+The [UndoWeave skill](INSTALL.md#4-optional-add-the-undoweave-skill) can walk
+an agent through this. It is instructions only; the server provides the tools.
+
+## Explicit paths: `config`
 
 Run `config` with the interpreter you installed into. It fills in that
 interpreter's absolute path and your project root. **It only prints; it never
@@ -84,10 +113,14 @@ Windows (PowerShell):
 claude 'mcp' 'add' '--transport' 'stdio' '--scope' 'project' 'undoweave' '--' 'C:\Users\me\.undoweave-venv\Scripts\python.exe' '-I' '-m' 'undoweave' '--root' 'C:\Users\me\code\my project' 'serve'
 ```
 
-Check it with `claude mcp list`. Claude Code asks you to approve project-scoped
-servers the first time it starts them.
+Restart or reconnect Claude Code, which asks you to approve project-scoped
+servers the first time it starts them. Then check `workspace_status`.
 
 ## Codex
+
+`setup --client codex` prints a table for the project's own
+`.codex/config.toml` (used only for trusted projects). The manual options
+below configure Codex for your user account, for one project at a time.
 
 Verified against the official Codex MCP documentation
 (<https://learn.chatgpt.com/docs/extend/mcp?surface=cli>) and the local

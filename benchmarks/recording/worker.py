@@ -22,7 +22,7 @@ def main():
     from undoweave.engine import Engine
     from undoweave.recorder import Recorder
 
-    if version("undoweave") != "0.3.0" or undoweave.__version__ != "0.3.0":
+    if version("undoweave") != "0.4.0" or undoweave.__version__ != "0.4.0":
         raise ValueError("installed_version_must_be_0_3_0")
     package = Path(undoweave.__file__).parent
     package_receipt = {

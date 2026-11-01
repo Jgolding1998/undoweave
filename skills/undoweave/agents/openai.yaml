@@ -1,0 +1,4 @@
+interface:
+  display_name: "UndoWeave"
+  short_description: "Set up and use recorded edits with safe undo"
+  default_prompt: "Use $undoweave to set up UndoWeave for this project and show me the plan first."

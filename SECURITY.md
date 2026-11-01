@@ -34,6 +34,21 @@ Hashes detect mismatches, not malicious journal rewriting by the same user. Acto
 
 ## Optional recording
 
+`setup` only proposes a project and recording paths. It reads directory names,
+file metadata and bounded root ignore rules; it does not initialize a journal,
+start a server, write client settings or execute project/manifests/install hooks.
+Unsupported nearer project markers refuse rather than broadening to a parent.
+The suggested paths are not a completed capture scan. Actual startup revalidates
+the root and scopes; nested ignores, text support and capture limits still apply.
+Recording paths do not restrict the file tools, which operate within the pinned
+project root except protected paths. Review both before connecting.
+
+The companion skill is instructions, installed separately. It cannot enforce
+client permissions or change a running server's root. Project-local settings
+avoid registering a recorder for every project; existing unrelated connections
+and approval/security settings must be preserved. Python installer commands use
+isolated mode so project files cannot impersonate `pip` or `venv` modules.
+
 The operator enables recording with explicit relative scopes in `watch` or
 `serve --watch`. MCP tools cannot enable or widen it. Only one recorder holds
 the journal's separate observation lease. It does not lock outside editors.

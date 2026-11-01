@@ -6,7 +6,7 @@ The corpus was originally authored before the recorder implementation was inspec
 
 ## Run from a normal clone
 
-Use Python 3.11+ with **`undoweave==0.3.0` installed** in that interpreter. The runner uses the standard library only; it does not install dependencies. MCP extras and a model account are unnecessary. Isolated child interpreters import the installed distribution, without `PYTHONPATH`, checkout source insertion or fixture imports.
+Use Python 3.11+ with **`undoweave==0.4.0` installed** in that interpreter. The runner uses the standard library only; it does not install dependencies. MCP extras and a model account are unnecessary. Isolated child interpreters import the installed distribution, without `PYTHONPATH`, checkout source insertion or fixture imports.
 
 From the clone root:
 
