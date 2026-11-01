@@ -18,6 +18,8 @@ possible data-loss case.
 - Add full-hash range/metadata reads and exact unique text replacements.
 - Align physical-line counting and make CRLF/CR/EOF review details explicit.
 - Add a standalone read-only HTML timeline, CLI export and MCP resource.
+- Escape Unicode in CLI JSON so legacy Windows pipes can acknowledge successful
+  edits reliably. Decoded text and file bytes remain unchanged.
 - Add independent repeated-line, real Git, Windows, migration and privacy
   regressions; refresh pinned comparisons and payload measurements.
 
