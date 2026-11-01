@@ -19,7 +19,7 @@ async def check(root):
     project.mkdir()
     target = project / "sample.txt"
     target.write_bytes(b"agent=old\nseparator=keep\nhuman=old\n")
-    params = StdioServerParameters(command=sys.executable, args=["-m", "undoweave", "--root", str(project), "--state-dir", str(root / "state"), "serve"])
+    params = StdioServerParameters(command=sys.executable, args=["-I", "-m", "undoweave", "--root", str(project), "--state-dir", str(root / "state"), "serve"])
     async with Client(params) as client:
         tools = (await client.list_tools()).tools
         assert {tool.name for tool in tools} == {"read_file", "write_file", "list_changes", "preview_undo", "apply_undo", "workspace_status"}
@@ -32,7 +32,7 @@ async def check(root):
         applied = await client.call_tool("apply_undo", {"token": preview.structured_content["token"]})
         assert not applied.is_error
         assert target.read_bytes() == b"agent=old\nseparator=keep\nhuman=kept\n"
-    config = subprocess.run([sys.executable, "-m", "undoweave", "--root", str(project), "config"], check=True, capture_output=True, encoding="utf-8", timeout=30)
+    config = subprocess.run([sys.executable, "-I", "-m", "undoweave", "--root", str(project), "config"], check=True, capture_output=True, encoding="utf-8", timeout=30)
     assert json.loads(config.stdout)["mcpServers"]["undoweave"]["command"] == sys.executable
     return {"ok": True, "version": undoweave.__version__, "installed_package": str(Path(undoweave.__file__).resolve()), "mcp_tools": len(tools), "human_edit_preserved": True, "generated_config_valid": True}
 

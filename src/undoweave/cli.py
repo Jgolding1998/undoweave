@@ -313,7 +313,9 @@ def _server_argv(args: argparse.Namespace) -> list[str]:
         raise UsageError("--root is required for 'config'")
     if not args.root.is_dir():
         raise UsageError("--root must be an existing directory")
-    argv = [sys.executable, "-m", "undoweave", "--root", str(args.root)]
+    # Ignore cwd, PYTHONPATH and user site: the selected project is data, not
+    # a trusted location from which to import the installed server or its SDK.
+    argv = [sys.executable, "-I", "-m", "undoweave", "--root", str(args.root)]
     if args.state_dir is not None:
         argv += ["--state-dir", str(args.state_dir)]
     return argv + ["serve"]

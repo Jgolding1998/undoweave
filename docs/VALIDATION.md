@@ -6,12 +6,13 @@ This is an early implementation, not a formal verification or a claim that no da
 
 Windows, Python 3.13.11, official MCP SDK 2.3.0:
 
-- Full unittest suite: 100 tests discovered, successful with seven expected Windows/platform skips. The skips cover unavailable symlink privileges and POSIX-only behavior; see CI for Linux execution.
+- The release suite contains 101 tests. Windows checks passed with seven expected local platform/privilege skips. See CI for execution on Linux and Windows hosted runners.
 - Four real MCP subprocess integration tests exercised tool discovery, instructions/prompt/resource, edit/undo with later human and agent edits, stale/reused tokens, path escape rejection, and protocol-only stdout.
 - Five Hypothesis properties generated 460 scenarios using an independent stable-line-identity oracle. Accepted results must match exact expected bytes; safe refusals are permitted for ambiguous text.
 - A separate deterministic oracle exercised 1000 disjoint replacement scenarios with LF and CRLF.
 - The 42 focused security regressions included actual NTFS short-name credential/state aliases, Windows case-alias history invalidation, hardlinks and junctions, malformed/tampered journals and plans, known preflight refusal versus unknown mutation recovery, and a two-process interleaving across the durable-intent/file-write boundary.
 - Generated Windows setup commands were parsed and exercised through PowerShell 7.6.5 and Windows PowerShell 5.1 with neutral punctuation markers. Arguments had to reach the test program literally; unsupported argument shapes are refused. POSIX quoting has a separate roundtrip check.
+- An installed MCP was launched using its generated isolated configuration from a disposable project containing shadow `undoweave.py`, `mcp.py` and `sitecustomize.py` files, with `PYTHONPATH` pointing there. The real MCP initialized and read its fixture; none of the shadow probes ran.
 - Crash injection covered interruption before replacement, after replacement, and unknown outside edits after interruption. Unknown states refused automatic recovery without overwriting them.
 - `pip-audit` reported no known vulnerabilities in the versions listed in `constraints.txt` at audit time. This is an advisory-database result, not a complete dependency security review.
 - A credential-pattern scan of intended public source files found no matches for the checked GitHub/OpenAI/AWS token and private-key patterns. This does not prove absence of every possible secret.

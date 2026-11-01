@@ -13,13 +13,17 @@ interpreter's absolute path and your project root. **It only prints; it never
 edits any client configuration.** You review and apply the output yourself.
 
 ```sh
-ABS_PYTHON -m undoweave --root ABS_PROJECT config                    # generic {"mcpServers": ...} JSON
-ABS_PYTHON -m undoweave --root ABS_PROJECT config --client claude    # a `claude mcp add ...` command line
-ABS_PYTHON -m undoweave --root ABS_PROJECT config --client codex     # a `codex mcp add ...` command and a config.toml table
+ABS_PYTHON -I -m undoweave --root ABS_PROJECT config                    # generic {"mcpServers": ...} JSON
+ABS_PYTHON -I -m undoweave --root ABS_PROJECT config --client claude    # a `claude mcp add ...` command line
+ABS_PYTHON -I -m undoweave --root ABS_PROJECT config --client codex     # a `codex mcp add ...` command and a config.toml table
 ```
 
 Add `--state-dir ABS_STATE_DIR` before `config` to pin the journal location too.
 If that interpreter cannot import `mcp` 2.x yet, `config` warns on stderr.
+
+The generated launch includes Python's `-I` isolated mode. Keep it: files in
+the selected project and its `PYTHONPATH` must not replace the installed server
+or SDK during startup. Install the package into the chosen interpreter first.
 
 ### Which shell the printed commands are for
 
@@ -65,13 +69,13 @@ user-level configuration.
 macOS / Linux:
 
 ```sh
-claude mcp add --transport stdio --scope project undoweave -- '/home/me/.undoweave-venv/bin/python' -m undoweave --root '/home/me/code/my project' serve
+claude mcp add --transport stdio --scope project undoweave -- '/home/me/.undoweave-venv/bin/python' -I -m undoweave --root '/home/me/code/my project' serve
 ```
 
 Windows (PowerShell):
 
 ```powershell
-claude 'mcp' 'add' '--transport' 'stdio' '--scope' 'project' 'undoweave' '--' 'C:\Users\me\.undoweave-venv\Scripts\python.exe' '-m' 'undoweave' '--root' 'C:\Users\me\code\my project' 'serve'
+claude 'mcp' 'add' '--transport' 'stdio' '--scope' 'project' 'undoweave' '--' 'C:\Users\me\.undoweave-venv\Scripts\python.exe' '-I' '-m' 'undoweave' '--root' 'C:\Users\me\code\my project' 'serve'
 ```
 
 Check it with `claude mcp list`. Claude Code asks you to approve project-scoped
@@ -91,19 +95,19 @@ must be doubled inside TOML double-quoted strings):
 ```toml
 [mcp_servers.undoweave]
 command = "C:\\Users\\me\\.undoweave-venv\\Scripts\\python.exe"
-args = ["-m", "undoweave", "--root", "C:\\Users\\me\\code\\my project", "serve"]
+args = ["-I", "-m", "undoweave", "--root", "C:\\Users\\me\\code\\my project", "serve"]
 ```
 
 or run the command (macOS / Linux):
 
 ```sh
-codex mcp add undoweave -- '/home/me/.undoweave-venv/bin/python' -m undoweave --root '/home/me/code/my project' serve
+codex mcp add undoweave -- '/home/me/.undoweave-venv/bin/python' -I -m undoweave --root '/home/me/code/my project' serve
 ```
 
 Windows (PowerShell):
 
 ```powershell
-codex 'mcp' 'add' 'undoweave' '--' 'C:\Users\me\.undoweave-venv\Scripts\python.exe' '-m' 'undoweave' '--root' 'C:\Users\me\code\my project' 'serve'
+codex 'mcp' 'add' 'undoweave' '--' 'C:\Users\me\.undoweave-venv\Scripts\python.exe' '-I' '-m' 'undoweave' '--root' 'C:\Users\me\code\my project' 'serve'
 ```
 
 ## Any other MCP client (generic config)
@@ -115,7 +119,7 @@ Most clients accept a `command` plus `args` entry. In JSON:
   "mcpServers": {
     "undoweave": {
       "command": "ABS_PYTHON",
-      "args": ["-m", "undoweave", "--root", "ABS_PROJECT", "serve"]
+      "args": ["-I", "-m", "undoweave", "--root", "ABS_PROJECT", "serve"]
     }
   }
 }
@@ -180,15 +184,15 @@ The same operations are available without MCP, each printing JSON:
 Quote paths as described above if they contain spaces or shell characters.
 
 ```sh
-python -m undoweave --root ABS_PROJECT read notes.txt
-python -m undoweave --root ABS_PROJECT edit notes.txt --content-file ABS_NEW_CONTENT --actor me --expected-hash SHA256
-python -m undoweave --root ABS_PROJECT edit notes.txt --delete --actor me --expected-hash SHA256
-python -m undoweave --root ABS_PROJECT history --limit 20
-python -m undoweave --root ABS_PROJECT preview EDIT_ID
-python -m undoweave --root ABS_PROJECT undo TOKEN
-python -m undoweave --root ABS_PROJECT status
-python -m undoweave --root ABS_PROJECT config [--client generic|claude|codex]
-python -m undoweave demo
+python -I -m undoweave --root ABS_PROJECT read notes.txt
+python -I -m undoweave --root ABS_PROJECT edit notes.txt --content-file ABS_NEW_CONTENT --actor me --expected-hash SHA256
+python -I -m undoweave --root ABS_PROJECT edit notes.txt --delete --actor me --expected-hash SHA256
+python -I -m undoweave --root ABS_PROJECT history --limit 20
+python -I -m undoweave --root ABS_PROJECT preview EDIT_ID
+python -I -m undoweave --root ABS_PROJECT undo TOKEN
+python -I -m undoweave --root ABS_PROJECT status
+python -I -m undoweave --root ABS_PROJECT config [--client generic|claude|codex]
+python -I -m undoweave demo
 ```
 
 `--content-file` must be a regular file (symlinks, reparse points, FIFOs,

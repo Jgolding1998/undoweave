@@ -110,7 +110,7 @@ class ConfigCommandTests(unittest.TestCase):
         self.assertEqual(Path(entry["command"]), Path(sys.executable))
         self.assertEqual(
             entry["args"],
-            ["-m", "undoweave", "--root", str(self.root), "--state-dir", str(self.state), "serve"],
+            ["-I", "-m", "undoweave", "--root", str(self.root), "--state-dir", str(self.state), "serve"],
         )
         self.assertFalse(self.state.exists(), "config must not create state")
 
@@ -329,7 +329,7 @@ class ShellQuotingTests(unittest.TestCase):
                     self.assertEqual(kinds, {"SingleQuoted"})
                     self.assertEqual(
                         values,
-                        [client, *prefix, sys.executable, "-m", "undoweave", "--root", str(root), "serve"],
+                        [client, *prefix, sys.executable, "-I", "-m", "undoweave", "--root", str(root), "serve"],
                     )
 
 

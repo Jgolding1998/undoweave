@@ -27,7 +27,7 @@ From a source checkout:
 python -m venv .venv
 # Activate .venv, then:
 python -m pip install ".[mcp]"
-python -m undoweave demo
+python -I -m undoweave demo
 ```
 
 There is no PyPI release yet. Use the versioned Git install above or install this checkout. The name was checked against GitHub repository search, PyPI and npm before creation; those checks do not establish global name exclusivity.
@@ -78,7 +78,7 @@ Read the [threat model and recovery notes](SECURITY.md) before using it on impor
 ```sh
 python -m pip install -c constraints.txt ".[mcp,dev]"
 python -m unittest discover -s tests -v
-python -m undoweave demo
+python -I -m undoweave demo
 ```
 
 Tests include real MCP subprocess calls, randomized merge cases, crash recovery, concurrent cooperating writers, path escapes, stale previews and local journal corruption. Synthetic tests and comparison fixtures are development evidence, not a guarantee against data loss on every project. See the [validation record](docs/VALIDATION.md) and [comparisons](docs/COMPARISON.md) for the precise checks, pinned upstream versions and limitations.

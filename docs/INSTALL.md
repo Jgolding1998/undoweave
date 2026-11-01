@@ -36,7 +36,7 @@ hash-pinned installs, generate a lock file yourself and install with
 ## 2. Check it works
 
 ```sh
-~/.undoweave-venv/bin/python -m undoweave demo          # Windows: & $HOME\.undoweave-venv\Scripts\python.exe -m undoweave demo
+~/.undoweave-venv/bin/python -I -m undoweave demo          # Windows: & $HOME\.undoweave-venv\Scripts\python.exe -I -m undoweave demo
 ```
 
 `demo` runs only inside a throwaway temporary directory. It records edits by
@@ -52,9 +52,9 @@ Let UndoWeave print the exact configuration for the interpreter you just
 installed into. It prints instructions only and never changes any configuration:
 
 ```sh
-~/.undoweave-venv/bin/python -m undoweave --root /ABS/PATH/TO/project config                   # generic mcpServers JSON
-~/.undoweave-venv/bin/python -m undoweave --root /ABS/PATH/TO/project config --client claude   # Claude Code command
-~/.undoweave-venv/bin/python -m undoweave --root /ABS/PATH/TO/project config --client codex    # Codex command / config.toml
+~/.undoweave-venv/bin/python -I -m undoweave --root /ABS/PATH/TO/project config                   # generic mcpServers JSON
+~/.undoweave-venv/bin/python -I -m undoweave --root /ABS/PATH/TO/project config --client claude   # Claude Code command
+~/.undoweave-venv/bin/python -I -m undoweave --root /ABS/PATH/TO/project config --client codex    # Codex command / config.toml
 ```
 
 See [AGENT_INSTRUCTIONS.md](AGENT_INSTRUCTIONS.md) for details and what to tell

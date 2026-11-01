@@ -11,6 +11,7 @@ The MCP client and its agent are trusted with file-editing access to the selecte
 ## Protection implemented
 
 - Project-relative forward-slash paths, with no traversal, absolute paths, Windows streams, reserved device names, trailing dots/spaces or control characters.
+- Generated server commands use Python isolated mode (`-I`), keeping the project working directory, `PYTHONPATH` and user site packages out of server imports. Keep this flag in manual configurations: project files named `undoweave.py`, `mcp.py` or `sitecustomize.py` must not impersonate installed code.
 - Credential-like names, dependency directories, journal files and version-control directories are denied. This list cannot identify every secret in an otherwise ordinary file.
 - All existing path components are inspected for links and Windows reparse points. Selected files must be regular and single-linked. Open descriptors are checked against their initial identity.
 - Writes require an expected content hash. Undo additionally requires a fresh, one-use preview token and unchanged same-file recorded history. Preview result text is recomputed at apply time.

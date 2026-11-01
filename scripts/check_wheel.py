@@ -19,7 +19,7 @@ def main():
         venv.create(base / "env", with_pip=True)
         interpreter = base / "env" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         subprocess.run([str(interpreter), "-m", "pip", "install", "-c", str(repository / "constraints.txt"), str(wheels[0]) + "[mcp]"], check=True, env=environment, cwd=base, timeout=180)
-        subprocess.run([str(interpreter), "-m", "undoweave", "demo"], check=True, env=environment, cwd=base, stdout=subprocess.DEVNULL, timeout=30)
+        subprocess.run([str(interpreter), "-I", "-m", "undoweave", "demo"], check=True, env=environment, cwd=base, stdout=subprocess.DEVNULL, timeout=30)
         subprocess.run([str(interpreter), str(repository / "scripts" / "smoke_install.py")], check=True, env=environment, cwd=base, timeout=120)
 
 
